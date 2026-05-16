@@ -1,55 +1,141 @@
 """Analysis module router — 6-pass audio pipeline endpoint.
 
 POST /api/v1/sessions/analyze — upload audio → full analysis JSON.
-Full implementation by Pete_Pipeline + Alice_Analysis in Phases 2–5.
+Pete_Pipeline implements Passes 1–4 (STT, diarization, speaker assignment,
+LLM fluency/vocab). Alice_Analysis (Phase 5) extends with Passes 5–6
+(comprehension quiz, grammar spotlight, voice blueprints).
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, File, Form, UploadFile
-from fastapi.responses import JSONResponse
+import json
+import tempfile
+from pathlib import Path
 
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from aria.backend.core.config import settings
+from aria.backend.core.exceptions import AudioFormatError, STTError
+from aria.backend.core.logging import get_logger
+from aria.backend.database import get_db
+from aria.backend.modules.analysis.models import AnalysisSession
+from aria.backend.modules.analysis.pipeline import AnalysisPipeline
+from aria.backend.modules.analysis.schemas import AnalysisSessionRead, SpeakerSegmentRead
+from aria.backend.services.factory import (
+    get_diarization_service,
+    get_llm_service,
+    get_stt_service,
+)
+
+log = get_logger(__name__)
 router = APIRouter()
+
+SUPPORTED_EXTENSIONS = {".mp3", ".m4a", ".wav", ".ogg", ".flac", ".webm"}
+
+
+def get_pipeline() -> AnalysisPipeline:
+    """FastAPI dependency — returns an AnalysisPipeline backed by current .env providers.
+
+    Overridden in tests via app.dependency_overrides[get_pipeline].
+    """
+    return AnalysisPipeline(
+        stt=get_stt_service(),
+        diarization=get_diarization_service(),
+        llm=get_llm_service(),
+    )
 
 
 @router.post(
     "/analyze",
+    response_model=AnalysisSessionRead,
+    status_code=200,
     summary="Analyse an uploaded audio file",
     description=(
-        "Runs the 6-pass Aria analysis pipeline on an uploaded audio file. "
-        "Returns speaker-labelled transcript, voice blueprints, fluency score, "
-        "comprehension quiz (10 questions), grammar spotlight, and vocabulary list. "
+        "Runs the Aria analysis pipeline on an uploaded audio file. "
+        "Returns speaker-labelled transcript, fluency score, and vocabulary list. "
+        "Phase 5 (Alice_Analysis) will add comprehension quiz and grammar spotlight. "
         "Supports de/en/es/fr/it as target languages; input language auto-detected."
     ),
     responses={
         200: {"description": "Analysis complete, full JSON result returned"},
-        413: {"description": "File exceeds 50MB limit"},
-        422: {"description": "Unsupported audio format"},
+        413: {"description": "File exceeds 50 MB limit"},
+        422: {"description": "Unsupported audio format or validation error"},
+        500: {"description": "STT or pipeline failure"},
     },
 )
 async def analyze_session(
-    audio: UploadFile = File(..., description="Audio file (mp3/m4a/wav/ogg/flac/webm, max 50MB)"),
+    audio: UploadFile = File(..., description="Audio file (mp3/m4a/wav/ogg/flac/webm, max 50 MB)"),
     language: str = Form("auto", description="Target language code (de/en/es/fr/it) or 'auto'"),
-    context: str = Form("unknown", description="Audio context: interview/lecture/language_practice/self_recorded/unknown"),
-    hf_token: str = Form("", description="HuggingFace token for pyannote diarization (dev only)"),
-) -> JSONResponse:
-    """Run the 6-pass analysis pipeline on an uploaded audio file.
+    pipeline: AnalysisPipeline = Depends(get_pipeline),
+    db: AsyncSession = Depends(get_db),
+) -> AnalysisSessionRead:
+    """Run the analysis pipeline on an uploaded audio file.
 
     Args:
         audio: Uploaded audio file (multipart/form-data).
-        language: Target language or "auto" for detection.
-        context: Recording context — drives which analysis engine runs.
-        hf_token: HuggingFace token for local pyannote (dev only).
+        language: Target language or "auto" for auto-detection.
+        pipeline: Injected pipeline instance (overridable in tests).
+        db: Injected database session.
 
     Returns:
-        JSON with full analysis: transcript, diarization, voice blueprints,
-        fluency score, comprehension quiz, grammar spotlight, vocabulary list.
+        AnalysisSessionRead with speaker-labelled transcript and LLM analysis.
 
     Raises:
         413: File exceeds MAX_UPLOAD_SIZE_MB.
         422: Unsupported audio format.
+        500: STT or pipeline failure.
     """
-    # Pete_Pipeline (Phase 2) + Alice_Analysis (Phase 5) implement this.
-    return JSONResponse(
-        {"detail": "Not implemented — Phase 2 (Pete_Pipeline) + Phase 5 (Alice_Analysis)"},
-        status_code=501,
+    content = await audio.read()
+    max_bytes = settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
+    if len(content) > max_bytes:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File exceeds {settings.MAX_UPLOAD_SIZE_MB} MB limit.",
+        )
+
+    filename = audio.filename or "upload"
+    ext = Path(filename).suffix.lower()
+    if ext not in SUPPORTED_EXTENSIONS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unsupported audio format '{ext}'. Supported: {', '.join(sorted(SUPPORTED_EXTENSIONS))}",
+        )
+
+    with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
+        tmp.write(content)
+        tmp_path = Path(tmp.name)
+
+    try:
+        result = await pipeline.run(tmp_path, language)
+    except (STTError, AudioFormatError) as exc:
+        log.error("pipeline_failed", error=str(exc))
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+    session = AnalysisSession(
+        audio_filename=filename,
+        language=result.language,
+        duration_seconds=result.duration_seconds,
+        num_speakers=result.num_speakers,
+        transcript_json=json.dumps([s.to_dict() for s in result.segments]),
+        fluency_score=result.fluency_score,
+        vocabulary_json=json.dumps(result.vocabulary),
+        status="complete",
+    )
+    db.add(session)
+    await db.commit()
+    await db.refresh(session)
+
+    return AnalysisSessionRead(
+        id=session.id,
+        created_at=session.created_at,
+        audio_filename=session.audio_filename,
+        language=session.language,
+        duration_seconds=session.duration_seconds,
+        num_speakers=session.num_speakers,
+        segments=[SpeakerSegmentRead(**s) for s in json.loads(session.transcript_json)],
+        fluency_score=session.fluency_score,
+        vocabulary=json.loads(session.vocabulary_json),
+        status=session.status,
     )
