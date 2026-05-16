@@ -1,11 +1,12 @@
 # Aria — Living Project Context
 
-Last updated by: Sam_Architect on 2026-05-16
+Last updated by: Anna_Auth on 2026-05-16
 
 ## Project State
 
-Phase 1 complete (Sam_Architect scaffold). Gate 1 pending Opus approval.
-Phase 2 (Anna_Auth + Pete_Pipeline) not yet started.
+Phase 1 complete (Sam_Architect scaffold). Gate 1 APPROVED.
+Phase 2 (Anna_Auth) complete. Gate 2 APPROVED — 36/36 tests.
+Pete_Pipeline (phase-3) not yet started.
 
 ## What's Been Built
 
@@ -29,7 +30,7 @@ Phase 2 (Anna_Auth + Pete_Pipeline) not yet started.
 - [x] ADR-001 through ADR-010
 - [x] docs/architecture.md, docs/development.md, docs/configuration.md
 - [x] CONTRIBUTING.md, CHANGELOG.md, README.md, .env.example
-- [ ] Auth (Anna_Auth — Phase 2)
+- [x] Auth (Anna_Auth — Phase 2) — JWT, User model, GDPR endpoints, Gate 2 APPROVED
 - [ ] ML pipeline implementations (Pete_Pipeline — Phase 3)
 - [ ] Live conversation (Carlos_Conversation — Phase 4)
 - [ ] Full analysis + language features (Alice_Analysis — Phase 5)
@@ -42,14 +43,17 @@ Phase 2 (Anna_Auth + Pete_Pipeline) not yet started.
 
 ```
 GET  /api/health                      → status, version, GPU info, Ollama status
-POST /api/v1/sessions/analyze         → STUB (Phase 2 Pete, Phase 5 Alice)
+POST /api/v1/sessions/analyze         → STUB (Phase 3 Pete, Phase 5 Alice)
 POST /api/v1/conversations/           → STUB (Phase 4 Carlos)
 WS   /ws/v1/conversation/{id}         → STUB (Phase 4 Carlos)
-POST /api/v1/auth/register            → STUB (Phase 2 Anna)
-POST /api/v1/auth/login               → STUB (Phase 2 Anna)
-GET  /api/v1/auth/me                  → STUB (Phase 2 Anna)
-GET  /api/v1/auth/me/export           → STUB (Phase 6 Anna)
-DELETE /api/v1/auth/me                → STUB (Phase 6 Anna)
+POST /api/v1/auth/register            → LIVE — create account (FastAPI-Users)
+POST /api/v1/auth/login               → LIVE — JWT cookie (15 min) + refresh token cookie (7 days)
+POST /api/v1/auth/logout              → LIVE — revoke session, clear cookies
+POST /api/v1/auth/refresh             → LIVE — rotate refresh token, new access token
+GET  /api/v1/auth/me                  → LIVE — current user + language preferences
+PATCH /api/v1/auth/me/preferences     → LIVE — update language preferences
+GET  /api/v1/auth/me/export           → LIVE — GDPR Article 20 data portability
+DELETE /api/v1/auth/me                → LIVE — GDPR Article 17 right to erasure
 GET  /api/v1/flashcards/due           → STUB (Phase 5 Felix)
 POST /api/v1/flashcards/review        → STUB (Phase 5 Felix)
 POST /api/v1/flashcards/generate      → STUB (Phase 5 Felix)
@@ -59,8 +63,9 @@ POST /api/v1/text-practice/upload     → STUB (Phase 5 Alice)
 
 ## Database Schema (current)
 
-Tables: none yet (Alembic migrations pending Phase 2)
-Pending: User, OAuthAccount, UserSession, UserPreferences (Anna_Auth Phase 2)
+Tables: `user`, `oauth_account`, `user_preferences`, `user_sessions`
+Migration: `aria/backend/migrations/versions/001_create_auth_tables.py`
+Pending: session, analysis, flashcard tables (Pete_Pipeline Phase 3 / Felix_Flashcards Phase 5)
 
 ## Environment Variables Required
 
@@ -91,6 +96,12 @@ Full list: see `aria/.env.example` and `aria/docs/configuration.md`
 
 None — Sam_Architect's scaffold is self-contained. All open questions are Phase 2+ scope.
 
+## Known Issues / Tech Debt (Phase 2 additions)
+
+- `aria_test.db` in `tests/` directory — git-ignored, cleaned up on each test run
+- httpx-oauth pinned to 0.15.1 (0.15.2 does not exist on PyPI — requirements.txt corrected)
+- OAuth routes (Google, GitHub) not yet implemented — config keys are wired but endpoints are conditional on non-empty CLIENT_ID values
+
 ## Next Agent
 
-Phase 2: Anna_Auth + Pete_Pipeline (same phase, same branch or separate feature branches within phase-2/)
+Phase 3: Pete_Pipeline (`phase-3/pete-pipeline`) — faster-whisper STT, Ollama LLM, pyannote diarization, real-time pipeline, VRAM load test
