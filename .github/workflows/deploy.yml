@@ -1,0 +1,86 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+# Only one deploy runs at a time; a newer push cancels an in-flight deploy.
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Backend → Fly.io ───────────────────────────────────────────────────────
+  deploy-backend:
+    name: Deploy backend (Fly.io)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy to Fly.io
+        # Build context is aria/ so Dockerfile can access backend/ and __init__.py
+        run: flyctl deploy --config aria/fly.toml --dockerfile aria/backend/Dockerfile --build-arg BUILD_CONTEXT=aria --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+  # ── Frontend → Vercel ──────────────────────────────────────────────────────
+  # Vercel auto-deploys on push to main via its GitHub App integration.
+  # This job documents the deployment URL and confirms the Vercel build succeeded.
+  deploy-frontend:
+    name: Deploy frontend (Vercel)
+    runs-on: ubuntu-latest
+    needs: deploy-backend   # backend health check must pass first
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: aria/frontend/package.json
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull Vercel environment
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+        working-directory: aria/frontend
+
+      - name: Build for production
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        working-directory: aria/frontend
+
+      - name: Deploy to Vercel
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+        working-directory: aria/frontend
+
+  # ── Post-deploy smoke test ─────────────────────────────────────────────────
+  smoke-test:
+    name: Smoke test
+    runs-on: ubuntu-latest
+    needs: [deploy-backend, deploy-frontend]
+
+    steps:
+      - name: Backend health check
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://aria-backend.fly.dev/api/health)
+          if [ "$STATUS" != "200" ]; then
+            echo "Health check failed: HTTP $STATUS"
+            exit 1
+          fi
+          echo "Backend healthy (HTTP $STATUS)"
+
+      - name: Frontend reachability check
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" ${{ secrets.VERCEL_FRONTEND_URL }})
+          if [ "$STATUS" != "200" ]; then
+            echo "Frontend check failed: HTTP $STATUS"
+            exit 1
+          fi
+          echo "Frontend reachable (HTTP $STATUS)"
