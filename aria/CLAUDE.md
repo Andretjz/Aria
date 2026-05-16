@@ -1,6 +1,6 @@
 # Aria — Living Project Context
 
-Last updated by: Anna_Auth on 2026-05-16
+Last updated by: Anna_Auth on 2026-05-17
 
 ## Project State
 
@@ -13,6 +13,7 @@ Phase 6 (Felix_Flashcards) complete. Gate 6 APPROVED — 214/214 tests.
 Phase 7 (Fiona_Frontend) complete. Gate 7 APPROVED — 70/70 vitest tests.
 Phase 8 (Dmitri_DevOps) complete. Gate 8 APPROVED — 233/233 pytest + 70/70 vitest tests.
 Phase 9 (Anna_Auth) complete. Gate 9 APPROVED — 273/273 pytest tests.
+Gate 10 (billing hardening) APPROVED — 277/277 pytest tests. Automatic payment methods, 14-day free trial, trialing status fix.
 
 ## What's Been Built
 
@@ -154,4 +155,5 @@ Full list: see `aria/.env.example` and `aria/docs/configuration.md`
 
 ## Next Agent
 
-All phases complete. No further phases defined.
+All planned phases complete. Gate 10 (billing hardening) approved.
+Pending: Google OAuth wiring (needs GOOGLE_OAUTH_CLIENT_ID in .env), Apple Sign-In (new feature), Supabase Alembic migration (run via Docker or Fly.io deploy).

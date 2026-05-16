@@ -89,9 +89,11 @@ async def create_checkout(
 
     session = stripe.checkout.Session.create(
         customer=customer_id,
-        payment_method_types=["card"],
         line_items=[{"price": _PRO_PRICE_ID, "quantity": 1}],
         mode="subscription",
+        # Require a payment method upfront even though the 14-day trial has no charge.
+        payment_method_collection="always",
+        subscription_data={"trial_period_days": 14},
         success_url="https://aria-backend.fly.dev/api/v1/billing/subscription",
         cancel_url="https://aria-backend.fly.dev/api/v1/billing/subscription",
         metadata={"user_id": str(current_user.id)},
@@ -220,13 +222,15 @@ async def _handle_checkout_completed(data: dict, db: AsyncSession) -> None:
         sub = UserSubscription(user_id=user_id)
         db.add(sub)
 
+    # payment_status is "no_payment_required" during a free trial
+    payment_status = data.get("payment_status", "paid")
     sub.plan = "pro"
-    sub.status = "active"
+    sub.status = "trialing" if payment_status == "no_payment_required" else "active"
     sub.stripe_customer_id = customer_id
     sub.stripe_subscription_id = subscription_id
     sub.updated_at = datetime.now(tz=timezone.utc)
     await db.commit()
-    log.info("subscription_activated", user_id=user_id_str)
+    log.info("subscription_activated", user_id=user_id_str, status=sub.status)
 
 
 async def _handle_subscription_updated(data: dict, db: AsyncSession) -> None:

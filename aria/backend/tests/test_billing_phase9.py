@@ -564,3 +564,115 @@ class TestBackwardCompatibility:
             json={"email": "backcompat9@aria.dev", "password": "Str0ngPass!"},
         )
         assert resp.status_code in (201, 400)  # 400 if already registered
+
+
+# ── TestTrialAndPaymentMethods ────────────────────────────────────────────────
+
+class TestTrialAndPaymentMethods:
+    """Verify 14-day trial logic and automatic payment methods."""
+
+    @pytest.mark.asyncio
+    async def test_checkout_completed_trialing_sets_trialing_status(self, client):
+        """Webhook: payment_status=no_payment_required → status=trialing (free trial)."""
+        user_id = "00000000-0000-0000-0000-000000000099"
+        payload = json.dumps({
+            "type": "checkout.session.completed",
+            "data": {"object": {
+                "customer": "cus_trial_test",
+                "subscription": "sub_trial_test",
+                "payment_status": "no_payment_required",
+                "metadata": {"user_id": user_id},
+            }},
+        })
+        resp = await client.post(
+            "/api/v1/billing/webhook",
+            content=payload,
+            headers={"content-type": "application/json"},
+        )
+        assert resp.status_code == 200
+
+        from aria.backend.database import AsyncSessionFactory
+        from aria.backend.modules.billing.models import UserSubscription
+        from sqlalchemy import select
+        async with AsyncSessionFactory() as db:
+            result = await db.execute(
+                select(UserSubscription).where(
+                    UserSubscription.user_id == uuid.UUID(user_id)
+                )
+            )
+            sub = result.scalar_one_or_none()
+        assert sub is not None
+        assert sub.plan == "pro"
+        assert sub.status == "trialing"
+
+    @pytest.mark.asyncio
+    async def test_checkout_completed_paid_sets_active_status(self, client):
+        """Webhook: payment_status=paid → status=active (immediate payment, no trial)."""
+        user_id = "00000000-0000-0000-0000-000000000098"
+        payload = json.dumps({
+            "type": "checkout.session.completed",
+            "data": {"object": {
+                "customer": "cus_paid_test",
+                "subscription": "sub_paid_test",
+                "payment_status": "paid",
+                "metadata": {"user_id": user_id},
+            }},
+        })
+        resp = await client.post(
+            "/api/v1/billing/webhook",
+            content=payload,
+            headers={"content-type": "application/json"},
+        )
+        assert resp.status_code == 200
+
+        from aria.backend.database import AsyncSessionFactory
+        from aria.backend.modules.billing.models import UserSubscription
+        from sqlalchemy import select
+        async with AsyncSessionFactory() as db:
+            result = await db.execute(
+                select(UserSubscription).where(
+                    UserSubscription.user_id == uuid.UUID(user_id)
+                )
+            )
+            sub = result.scalar_one_or_none()
+        assert sub is not None
+        assert sub.plan == "pro"
+        assert sub.status == "active"
+
+    @pytest.mark.asyncio
+    async def test_trialing_pro_user_is_pro(self):
+        """UserSubscription.is_pro is True for trialing pro (trial grants full access)."""
+        from aria.backend.modules.billing.models import UserSubscription
+
+        class _S:
+            plan = "pro"
+            status = "trialing"
+
+        assert UserSubscription.is_pro.fget(_S()) is True  # type: ignore[attr-defined]
+
+    @pytest.mark.asyncio
+    async def test_checkout_session_has_trial_and_no_card_restriction(self, authed_client):
+        """checkout endpoint: trial_period_days=14, payment_method_collection=always, no payment_method_types."""
+        from unittest.mock import MagicMock, patch
+
+        captured: dict = {}
+
+        def _fake_session(**kw):
+            captured.update(kw)
+            m = MagicMock()
+            m.__getitem__ = lambda s, k: "https://checkout.stripe.com/test"
+            return m
+
+        fake_customer = MagicMock()
+        fake_customer.__getitem__ = lambda s, k: "cus_trial_mock"
+
+        with patch("aria.backend.modules.billing.router.settings") as mock_settings, \
+             patch("stripe.Customer.create", return_value=fake_customer), \
+             patch("stripe.checkout.Session.create", side_effect=_fake_session):
+            mock_settings.STRIPE_SECRET_KEY = "sk_test_mock"
+            resp = await authed_client.post("/api/v1/billing/checkout")
+
+        assert resp.status_code == 200
+        assert captured.get("payment_method_collection") == "always"
+        assert captured.get("subscription_data", {}).get("trial_period_days") == 14
+        assert "payment_method_types" not in captured
