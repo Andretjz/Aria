@@ -1,0 +1,55 @@
+# fly.toml — Fly.io configuration for Aria backend
+# ADR-007: Frankfurt (fra) for EU GDPR data residency; 2 shared CPU / 4 GB RAM.
+# Deploy: fly deploy  (run from the aria/ directory)
+# Secrets:  fly secrets set KEY=value  (never commit .env to production)
+
+app            = "aria-backend"
+primary_region = "fra"
+
+[build]
+  dockerfile = "backend/Dockerfile"
+
+# Non-secret env — safe to commit.  Secrets go in: fly secrets set KEY=value
+[env]
+  PORT                 = "8000"
+  STT_BACKEND          = "gladia"
+  LLM_BACKEND          = "claude"
+  TTS_BACKEND          = "openai"
+  DIAR_BACKEND         = "gladia"
+  TRANSLATION_BACKEND  = "deepl"
+  DEBUG                = "false"
+  LOG_LEVEL            = "INFO"
+  WHISPER_DEVICE       = "cpu"
+  WHISPER_COMPUTE_TYPE = "int8"
+
+# Secrets to set via `fly secrets set` (never in this file):
+#   SECRET_KEY, DATABASE_URL, REDIS_URL,
+#   ANTHROPIC_API_KEY, GLADIA_API_KEY, DEEPGRAM_API_KEY,
+#   OPENAI_API_KEY, DEEPL_API_KEY, STRIPE_SECRET_KEY
+
+[http_service]
+  internal_port        = 8000
+  force_https          = true
+  auto_stop_machines   = true   # scale to zero during off-peak
+  auto_start_machines  = true
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type       = "requests"
+    hard_limit = 50
+    soft_limit = 25
+
+[[vm]]
+  cpu_kind  = "shared"
+  cpus      = 2
+  memory_mb = 4096
+
+[[checks]]
+  name         = "health"
+  port         = 8000
+  type         = "http"
+  interval     = "15s"
+  timeout      = "5s"
+  grace_period = "30s"
+  method       = "GET"
+  path         = "/api/health"

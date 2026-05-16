@@ -27,7 +27,9 @@
       "Bash(npx vitest *)",
       "Bash(npm install *)",
       "Bash(npm run *)",
-      "Bash(gh pr create --title 'feat: Phase 7 — Fiona_Frontend full React/TypeScript UI' --body ' *)"
+      "Bash(gh pr create --title 'feat: Phase 7 — Fiona_Frontend full React/TypeScript UI' --body ' *)",
+      "Bash(python -m pytest tests/test_deployment.py -v)",
+      "Bash(gh pr create --title 'feat: Phase 8 — Dmitri_DevOps cloud deployment \\(Fly.io + Vercel + CI/CD\\)' --body ' *)"
     ]
   }
 }
