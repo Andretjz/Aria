@@ -11,6 +11,7 @@ os.environ.setdefault("LLM_BACKEND", "ollama")
 os.environ.setdefault("TTS_BACKEND", "piper")
 os.environ.setdefault("DIAR_BACKEND", "local")
 os.environ.setdefault("DEBUG", "true")
+os.environ.setdefault("HF_TOKEN", "fake-hf-token-for-tests")
 
 # Use a file-based SQLite for tests.  File-path SQLite works with async
 # aiosqlite; NullPool avoids connection-pool state between tests.
@@ -38,7 +39,8 @@ _db.AsyncSessionFactory = async_sessionmaker(
 # Create tables synchronously (avoids async event-loop lifecycle issues with
 # aiosqlite daemon threads between asyncio.run() and pytest-asyncio loops).
 # A plain sqlite3 engine for table creation; the app uses the async engine.
-import aria.backend.modules.auth.models  # noqa: F401, E402 — registers with Base
+import aria.backend.modules.analysis.models  # noqa: F401, E402 — registers with Base
+import aria.backend.modules.auth.models  # noqa: F401, E402
 import aria.backend.modules.flashcards.models  # noqa: F401, E402
 
 _sync_engine = _sync_create_engine(f"sqlite:///{_TEST_DB_PATH}")

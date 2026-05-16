@@ -1,12 +1,13 @@
 # Aria — Living Project Context
 
-Last updated by: Anna_Auth on 2026-05-16
+Last updated by: Pete_Pipeline on 2026-05-16
 
 ## Project State
 
 Phase 1 complete (Sam_Architect scaffold). Gate 1 APPROVED.
 Phase 2 (Anna_Auth) complete. Gate 2 APPROVED — 36/36 tests.
-Pete_Pipeline (phase-3) not yet started.
+Phase 3 (Pete_Pipeline) complete. Gate 3 APPROVED — 70/70 tests.
+Carlos_Conversation (phase-4) not yet started.
 
 ## What's Been Built
 
@@ -31,7 +32,7 @@ Pete_Pipeline (phase-3) not yet started.
 - [x] docs/architecture.md, docs/development.md, docs/configuration.md
 - [x] CONTRIBUTING.md, CHANGELOG.md, README.md, .env.example
 - [x] Auth (Anna_Auth — Phase 2) — JWT, User model, GDPR endpoints, Gate 2 APPROVED
-- [ ] ML pipeline implementations (Pete_Pipeline — Phase 3)
+- [x] ML pipeline (Pete_Pipeline — Phase 3) — STT, diarization, speaker assignment, LLM analysis, Gate 3 APPROVED
 - [ ] Live conversation (Carlos_Conversation — Phase 4)
 - [ ] Full analysis + language features (Alice_Analysis — Phase 5)
 - [ ] Flashcards SM-2 (Felix_Flashcards — Phase 5)
@@ -43,7 +44,7 @@ Pete_Pipeline (phase-3) not yet started.
 
 ```
 GET  /api/health                      → status, version, GPU info, Ollama status
-POST /api/v1/sessions/analyze         → STUB (Phase 3 Pete, Phase 5 Alice)
+POST /api/v1/sessions/analyze         → LIVE — upload audio → speaker-labelled transcript + fluency + vocab (Phase 5 Alice extends)
 POST /api/v1/conversations/           → STUB (Phase 4 Carlos)
 WS   /ws/v1/conversation/{id}         → STUB (Phase 4 Carlos)
 POST /api/v1/auth/register            → LIVE — create account (FastAPI-Users)
@@ -63,9 +64,9 @@ POST /api/v1/text-practice/upload     → STUB (Phase 5 Alice)
 
 ## Database Schema (current)
 
-Tables: `user`, `oauth_account`, `user_preferences`, `user_sessions`
-Migration: `aria/backend/migrations/versions/001_create_auth_tables.py`
-Pending: session, analysis, flashcard tables (Pete_Pipeline Phase 3 / Felix_Flashcards Phase 5)
+Tables: `user`, `oauth_account`, `user_preferences`, `user_sessions`, `analysis_sessions`
+Migrations: `001_create_auth_tables.py`, `002_create_analysis_tables.py`
+Pending: conversation, flashcard tables (Carlos_Conversation Phase 4 / Felix_Flashcards Phase 5)
 
 ## Environment Variables Required
 
@@ -102,6 +103,12 @@ None — Sam_Architect's scaffold is self-contained. All open questions are Phas
 - httpx-oauth pinned to 0.15.1 (0.15.2 does not exist on PyPI — requirements.txt corrected)
 - OAuth routes (Google, GitHub) not yet implemented — config keys are wired but endpoints are conditional on non-empty CLIENT_ID values
 
+## Known Issues / Tech Debt (Phase 3 additions)
+
+- `analysis_sessions.user_id` is nullable — anonymous sessions allowed in dev; Phase 9 enforces auth + billing per session
+- `POST /api/v1/sessions/analyze` returns basic fluency + vocab; Alice_Analysis (Phase 5) extends with comprehension quiz, grammar spotlight, voice blueprints
+- `_analyse_with_llm` uses `json.loads` first, then `parse_json_from_llm` fallback — works correctly but worth consolidating in Phase 5
+
 ## Next Agent
 
-Phase 3: Pete_Pipeline (`phase-3/pete-pipeline`) — faster-whisper STT, Ollama LLM, pyannote diarization, real-time pipeline, VRAM load test
+Phase 4: Carlos_Conversation (`phase-4/carlos-conversation`) — WebSocket live conversation, VAD, turn detection, real-time STT→LLM→TTS cycle
