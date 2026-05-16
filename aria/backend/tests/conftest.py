@@ -41,6 +41,7 @@ _db.AsyncSessionFactory = async_sessionmaker(
 # A plain sqlite3 engine for table creation; the app uses the async engine.
 import aria.backend.modules.analysis.models  # noqa: F401, E402 — registers with Base
 import aria.backend.modules.auth.models  # noqa: F401, E402
+import aria.backend.modules.conversation.models  # noqa: F401, E402
 import aria.backend.modules.flashcards.models  # noqa: F401, E402
 
 _sync_engine = _sync_create_engine(f"sqlite:///{_TEST_DB_PATH}")

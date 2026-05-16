@@ -1,13 +1,14 @@
 # Aria — Living Project Context
 
-Last updated by: Pete_Pipeline on 2026-05-16
+Last updated by: Carlos_Conversation on 2026-05-16
 
 ## Project State
 
 Phase 1 complete (Sam_Architect scaffold). Gate 1 APPROVED.
 Phase 2 (Anna_Auth) complete. Gate 2 APPROVED — 36/36 tests.
 Phase 3 (Pete_Pipeline) complete. Gate 3 APPROVED — 70/70 tests.
-Carlos_Conversation (phase-4) not yet started.
+Phase 4 (Carlos_Conversation) complete. Gate 4 APPROVED — 113/113 tests.
+Alice_Analysis (phase-5) not yet started.
 
 ## What's Been Built
 
@@ -33,7 +34,7 @@ Carlos_Conversation (phase-4) not yet started.
 - [x] CONTRIBUTING.md, CHANGELOG.md, README.md, .env.example
 - [x] Auth (Anna_Auth — Phase 2) — JWT, User model, GDPR endpoints, Gate 2 APPROVED
 - [x] ML pipeline (Pete_Pipeline — Phase 3) — STT, diarization, speaker assignment, LLM analysis, Gate 3 APPROVED
-- [ ] Live conversation (Carlos_Conversation — Phase 4)
+- [x] Live conversation (Carlos_Conversation — Phase 4) — WebSocket, VAD, turn detection, STT→LLM→TTS cycle, Gate 4 APPROVED
 - [ ] Full analysis + language features (Alice_Analysis — Phase 5)
 - [ ] Flashcards SM-2 (Felix_Flashcards — Phase 5)
 - [ ] Full frontend UI (Fiona_Frontend — Phase 7)
@@ -45,8 +46,8 @@ Carlos_Conversation (phase-4) not yet started.
 ```
 GET  /api/health                      → status, version, GPU info, Ollama status
 POST /api/v1/sessions/analyze         → LIVE — upload audio → speaker-labelled transcript + fluency + vocab (Phase 5 Alice extends)
-POST /api/v1/conversations/           → STUB (Phase 4 Carlos)
-WS   /ws/v1/conversation/{id}         → STUB (Phase 4 Carlos)
+POST /api/v1/conversations/           → LIVE — create session (Phase 4 Carlos)
+WS   /ws/v1/conversation/{id}         → LIVE — live turn cycle (Phase 4 Carlos)
 POST /api/v1/auth/register            → LIVE — create account (FastAPI-Users)
 POST /api/v1/auth/login               → LIVE — JWT cookie (15 min) + refresh token cookie (7 days)
 POST /api/v1/auth/logout              → LIVE — revoke session, clear cookies
@@ -64,9 +65,9 @@ POST /api/v1/text-practice/upload     → STUB (Phase 5 Alice)
 
 ## Database Schema (current)
 
-Tables: `user`, `oauth_account`, `user_preferences`, `user_sessions`, `analysis_sessions`
-Migrations: `001_create_auth_tables.py`, `002_create_analysis_tables.py`
-Pending: conversation, flashcard tables (Carlos_Conversation Phase 4 / Felix_Flashcards Phase 5)
+Tables: `user`, `oauth_account`, `user_preferences`, `user_sessions`, `analysis_sessions`, `conversation_sessions`
+Migrations: `001_create_auth_tables.py`, `002_create_analysis_tables.py`, `003_create_conversation_tables.py`
+Pending: flashcard tables (Felix_Flashcards Phase 5)
 
 ## Environment Variables Required
 
@@ -109,6 +110,13 @@ None — Sam_Architect's scaffold is self-contained. All open questions are Phas
 - `POST /api/v1/sessions/analyze` returns basic fluency + vocab; Alice_Analysis (Phase 5) extends with comprehension quiz, grammar spotlight, voice blueprints
 - `_analyse_with_llm` uses `json.loads` first, then `parse_json_from_llm` fallback — works correctly but worth consolidating in Phase 5
 
+## Known Issues / Tech Debt (Phase 4 additions)
+
+- `conversation_sessions.user_id` is nullable — anonymous sessions in dev; Phase 9 enforces auth + billing
+- VAD is energy-based RMS (no GPU, no Silero); sufficient for dev; swap via `EnergyVAD` subclass in Phase 7+ if needed
+- STT uses batch `transcribe_file` per turn (temp-file write + read); streaming STT can be wired via `transcribe_stream` in a future phase
+- `TestWebSocket` uses mock DB to avoid SQLite write-lock contention between TestClient thread and pytest-asyncio event loop — real DB persistence is tested only via REST endpoint tests
+
 ## Next Agent
 
-Phase 4: Carlos_Conversation (`phase-4/carlos-conversation`) — WebSocket live conversation, VAD, turn detection, real-time STT→LLM→TTS cycle
+Phase 5: Alice_Analysis (`phase-5/alice-analysis`) — comprehension quiz, grammar spotlight, voice blueprints; extends `AnalysisSessionRead` and the analysis pipeline

@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git checkout *)",
+      "Bash(python -m pytest tests/ -v)",
+      "Bash(pip show *)",
+      "Bash(where pytest *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\mormi\\\\OneDrive\\\\Documents\\\\Ai_Projects\\\\Aria\" -Recurse -Name \"python.exe\" -ErrorAction SilentlyContinue)",
+      "Bash(Select-Object -First 10)",
+      "Bash(pip list *)",
+      "Bash(pip install *)",
+      "Bash(python -m pytest tests/test_auth.py::TestRegister::test_register_201_returns_user tests/test_auth.py::TestLogin::test_login_200_sets_cookies -v --tb=short)",
+      "Bash(git -C \"C:\\\\Users\\\\mormi\\\\OneDrive\\\\Documents\\\\Ai_Projects\\\\Aria\" check-ignore aria/backend/tests/aria_test.db)",
+      "Bash(python -m pytest tests/ -v --tb=short)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(python -m pytest tests/test_pipeline.py::TestPipelineRun::test_run_success tests/test_pipeline.py::TestAnalyzeEndpoint::test_analyze_no_file_returns_422 -v --tb=long)",
+      "Bash(python -m pytest tests/test_pipeline.py::TestPipelineRun::test_run_success tests/test_pipeline.py::TestAnalyzeEndpoint::test_analyze_no_file_returns_422 -v --tb=short)",
+      "Bash(python -m pytest backend/tests/test_conversation.py -v --tb=short)",
+      "Bash(python -m pytest backend/tests/ -v --tb=short)"
+    ]
+  }
+}
