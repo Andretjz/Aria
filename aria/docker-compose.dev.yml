@@ -1,0 +1,109 @@
+version: "3.9"
+
+# Aria development stack — 4 services + test audio volume
+# Usage: docker compose -f docker-compose.dev.yml up
+# All services health-checked; backend waits for Redis + Postgres to be ready.
+# Test audio is mounted read-only at /test-audio inside the backend container.
+
+services:
+
+  aria-backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.dev
+    container_name: aria-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app/backend             # live code reload (uvicorn --reload)
+      - C:/Users/mormi/OneDrive/Documents/Ai_Projects/6/Audio:/test-audio:ro
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://aria:aria@aria-postgres:5432/aria_dev
+      - REDIS_URL=redis://aria-redis:6379/0
+      - STT_BACKEND=${STT_BACKEND:-local}
+      - LLM_BACKEND=${LLM_BACKEND:-ollama}
+      - TTS_BACKEND=${TTS_BACKEND:-piper}
+      - DIAR_BACKEND=${DIAR_BACKEND:-local}
+      - OLLAMA_URL=${OLLAMA_URL:-http://host.docker.internal:11434}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.1:8b}
+      - HF_TOKEN=${HF_TOKEN:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY:-}
+      - GLADIA_API_KEY=${GLADIA_API_KEY:-}
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY:-}
+      - DEBUG=true
+      - LOG_LEVEL=DEBUG
+    depends_on:
+      aria-postgres:
+        condition: service_healthy
+      aria-redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    # GPU access for dev (faster-whisper, pyannote, speechbrain)
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  aria-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: aria-frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app                    # Vite HMR live reload
+      - /app/node_modules
+    environment:
+      - VITE_API_URL=http://localhost:8000
+      - VITE_WS_URL=ws://localhost:8000
+    depends_on:
+      - aria-backend
+    restart: unless-stopped
+
+  aria-redis:
+    image: redis:7-alpine
+    container_name: aria-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - aria_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  aria-postgres:
+    image: postgres:16-alpine
+    container_name: aria-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=aria
+      - POSTGRES_PASSWORD=aria
+      - POSTGRES_DB=aria_dev
+    volumes:
+      - aria_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aria -d aria_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  aria_redis_data:
+  aria_postgres_data:

@@ -1,0 +1,12 @@
+# GPU-only dependencies — dev machines only (RTX 4070 Ti).
+# Install AFTER requirements.txt: pip install -r requirements-gpu.txt
+# Production Fly.io containers do NOT install this file.
+# See docs/development.md for full GPU setup instructions.
+
+faster-whisper==1.1.1
+torch>=2.3.0
+torchaudio>=2.3.0
+pyannote.audio==3.3.2
+speechbrain==1.0.2
+# silero-vad: install from GitHub
+# pip install git+https://github.com/snakers4/silero-vad.git
