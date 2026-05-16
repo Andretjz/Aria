@@ -13,6 +13,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from aria.backend.database import get_db
 from aria.backend.modules.analysis.models import AnalysisSession
+from aria.backend.modules.auth.models import User
+from aria.backend.modules.auth.users import current_active_user
 from aria.backend.modules.grammar.schemas import GrammarDeficitRead
 
 router = APIRouter()
@@ -29,6 +31,7 @@ router = APIRouter()
 )
 async def get_deficits(
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(current_active_user),
 ) -> list[GrammarDeficitRead]:
     """Aggregate grammar spotlight data across all sessions and return top 5.
 
@@ -42,7 +45,8 @@ async def get_deficits(
         Up to 5 grammar deficits ordered by descending total frequency.
     """
     stmt = select(AnalysisSession.grammar_json).where(
-        AnalysisSession.grammar_json.isnot(None)
+        AnalysisSession.grammar_json.isnot(None),
+        AnalysisSession.user_id == current_user.id,
     )
     rows = await db.execute(stmt)
     grammar_jsons = [row[0] for row in rows.fetchall()]

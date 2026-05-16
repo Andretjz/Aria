@@ -1,6 +1,6 @@
 # Aria — Living Project Context
 
-Last updated by: Dmitri_DevOps on 2026-05-16
+Last updated by: Anna_Auth on 2026-05-16
 
 ## Project State
 
@@ -12,6 +12,7 @@ Phase 5 (Alice_Analysis) complete. Gate 5 APPROVED — 167/167 tests.
 Phase 6 (Felix_Flashcards) complete. Gate 6 APPROVED — 214/214 tests.
 Phase 7 (Fiona_Frontend) complete. Gate 7 APPROVED — 70/70 vitest tests.
 Phase 8 (Dmitri_DevOps) complete. Gate 8 APPROVED — 233/233 pytest + 70/70 vitest tests.
+Phase 9 (Anna_Auth) complete. Gate 9 APPROVED — 273/273 pytest tests.
 
 ## What's Been Built
 
@@ -42,7 +43,7 @@ Phase 8 (Dmitri_DevOps) complete. Gate 8 APPROVED — 233/233 pytest + 70/70 vit
 - [x] Flashcards SM-2 (Felix_Flashcards — Phase 6) — SM-2 spaced repetition, flashcard deck/card/review ORM, generate/due/review/stats endpoints, Gate 6 APPROVED
 - [x] Full frontend UI (Fiona_Frontend — Phase 7) — React/TypeScript UI for all 6 modules, typed API client layer, Zustand stores, Nav/Layout, 70/70 vitest tests, Gate 7 APPROVED
 - [x] Cloud deployment (Dmitri_DevOps — Phase 8) — production Dockerfile (CPU-only/slim), Fly.io (fra, 2 CPU/4 GB), Vercel SPA+proxy, deploy.yml CD workflow, Locust load test, Gate 8 APPROVED
-- [ ] Monetization (Anna_Auth — Phase 9)
+- [x] Monetization (Anna_Auth — Phase 9) — Stripe subscriptions, Free/Pro tier enforcement, auth scope across all modules, Gate 9 APPROVED
 
 ## API Endpoints (current)
 
@@ -66,11 +67,15 @@ POST /api/v1/flashcards/review        → LIVE — SM-2 quality rating (0-5), up
 POST /api/v1/flashcards/generate      → LIVE — create deck + flashcards from vocabulary list
 GET  /api/v1/flashcards/stats         → LIVE — total_cards, cards_due, cards_mastered (interval >= 21)
 GET  /api/v1/grammar/exercises/{id}   → STUB (Phase 6+)
+GET  /api/v1/billing/subscription     → LIVE — current user's plan/status (Phase 9 Anna_Auth)
+POST /api/v1/billing/checkout         → LIVE — create Stripe Checkout session (Pro upgrade)
+POST /api/v1/billing/portal           → LIVE — create Stripe Billing Portal session
+POST /api/v1/billing/webhook          → LIVE — Stripe webhook handler (sig-verified)
 ```
 
 ## Database Schema (current)
 
-Tables: `user`, `oauth_account`, `user_preferences`, `user_sessions`, `analysis_sessions`, `conversation_sessions`, `flashcard_decks`, `flashcards`, `flashcard_reviews`
+Tables: `user`, `oauth_account`, `user_preferences`, `user_sessions`, `analysis_sessions`, `conversation_sessions`, `flashcard_decks`, `flashcards`, `flashcard_reviews`, `user_subscriptions`
 Migrations: `001_create_auth_tables.py`, `002_create_analysis_tables.py`, `003_create_conversation_tables.py`, `004_extend_analysis_tables.py`, `005_create_flashcard_tables.py`
 
 ## Environment Variables Required
@@ -149,4 +154,4 @@ Full list: see `aria/.env.example` and `aria/docs/configuration.md`
 
 ## Next Agent
 
-Phase 9: Anna_Auth (`phase-9/anna-auth`) — Monetization: Stripe subscriptions, Free/Pro tier enforcement, auth scope across all modules
+All phases complete. No further phases defined.

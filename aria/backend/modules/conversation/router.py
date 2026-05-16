@@ -17,6 +17,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from aria.backend.core.logging import get_logger
 from aria.backend.database import get_db
+from aria.backend.modules.auth.models import User
+from aria.backend.modules.auth.users import current_active_user
+from aria.backend.modules.billing.dependencies import check_daily_conversations
 from aria.backend.modules.conversation.engine import ConversationEngine
 from aria.backend.modules.conversation.models import ConversationSession
 from aria.backend.modules.conversation.schemas import (
@@ -63,6 +66,8 @@ def get_engine() -> ConversationEngine:
 async def create_session(
     body: ConversationSessionCreate,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(current_active_user),
+    _quota: None = Depends(check_daily_conversations),
 ) -> ConversationSessionRead:
     """Create a conversation session and persist it to the database.
 
@@ -73,7 +78,7 @@ async def create_session(
     Returns:
         ConversationSessionRead with the new session_id and metadata.
     """
-    session = ConversationSession(language=body.language)
+    session = ConversationSession(user_id=current_user.id, language=body.language)
     db.add(session)
     await db.commit()
     await db.refresh(session)

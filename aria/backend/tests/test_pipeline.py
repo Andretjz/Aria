@@ -320,6 +320,9 @@ class TestAnalyzeEndpoint:
         from aria.backend.main import app
         from aria.backend.modules.analysis.router import get_pipeline
         from aria.backend.modules.analysis.pipeline import AnalysisPipeline, PipelineResult, SpeakerSegment
+        from aria.backend.modules.auth.users import current_active_user
+        from aria.backend.modules.billing.dependencies import check_daily_analysis
+        from aria.backend.tests.conftest import MOCK_USER
         from httpx import ASGITransport, AsyncClient
 
         mock_pipeline = AsyncMock(spec=AnalysisPipeline)
@@ -333,13 +336,17 @@ class TestAnalyzeEndpoint:
         ))
 
         app.dependency_overrides[get_pipeline] = lambda: mock_pipeline
+        app.dependency_overrides[current_active_user] = lambda: MOCK_USER
+        app.dependency_overrides[check_daily_analysis] = lambda: None
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
             yield ac, mock_pipeline
         app.dependency_overrides.pop(get_pipeline, None)
+        app.dependency_overrides.pop(current_active_user, None)
+        app.dependency_overrides.pop(check_daily_analysis, None)
 
     @pytest.mark.asyncio
-    async def test_analyze_no_file_returns_422(self, client):
-        resp = await client.post("/api/v1/sessions/analyze")
+    async def test_analyze_no_file_returns_422(self, authed_client):
+        resp = await authed_client.post("/api/v1/sessions/analyze")
         assert resp.status_code == 422
 
     @pytest.mark.asyncio

@@ -125,6 +125,7 @@ async def health() -> JSONResponse:
 
 from aria.backend.modules.analysis.router import router as analysis_router
 from aria.backend.modules.auth.router import router as auth_router
+from aria.backend.modules.billing.router import router as billing_router
 from aria.backend.modules.conversation.router import router as conversation_router
 from aria.backend.modules.conversation.router import ws_router as conversation_ws_router
 from aria.backend.modules.flashcards.router import router as flashcard_router
@@ -132,6 +133,7 @@ from aria.backend.modules.grammar.router import router as grammar_router
 from aria.backend.modules.text_practice.router import router as text_practice_router
 
 app.include_router(auth_router,               prefix="/api/v1/auth",          tags=["auth"])
+app.include_router(billing_router,            prefix="/api/v1/billing",        tags=["billing"])
 app.include_router(conversation_router,       prefix="/api/v1/conversations",  tags=["conversation"])
 app.include_router(conversation_ws_router,    prefix="/ws/v1/conversation",    tags=["conversation"])
 app.include_router(analysis_router,           prefix="/api/v1/sessions",       tags=["analysis"])
