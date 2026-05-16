@@ -1,0 +1,34 @@
+# Aria backend — development image (CUDA + all GPU dependencies)
+# Base: NVIDIA CUDA 12.1 + Python 3.11
+# Production image (CPU-only, slim) is built by Dmitri_DevOps in Phase 8.
+
+FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3.11 python3.11-dev python3-pip python3.11-venv \
+    ffmpeg libsndfile1 curl git \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN ln -sf /usr/bin/python3.11 /usr/bin/python && \
+    ln -sf /usr/bin/pip3 /usr/bin/pip
+
+WORKDIR /app
+
+COPY backend/requirements.txt .
+RUN pip install --upgrade pip && pip install -r requirements.txt
+
+# GPU requirements installed separately — only on dev machines
+COPY backend/requirements-gpu.txt .
+RUN pip install -r requirements-gpu.txt || echo "[WARN] GPU requirements skipped (no CUDA drivers in build stage)"
+
+COPY backend/ ./backend/
+
+EXPOSE 8000
+
+CMD ["uvicorn", "aria.backend.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/app/backend"]
