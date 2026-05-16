@@ -1,6 +1,6 @@
 # Aria — Living Project Context
 
-Last updated by: Fiona_Frontend on 2026-05-16
+Last updated by: Dmitri_DevOps on 2026-05-16
 
 ## Project State
 
@@ -11,6 +11,7 @@ Phase 4 (Carlos_Conversation) complete. Gate 4 APPROVED — 113/113 tests.
 Phase 5 (Alice_Analysis) complete. Gate 5 APPROVED — 167/167 tests.
 Phase 6 (Felix_Flashcards) complete. Gate 6 APPROVED — 214/214 tests.
 Phase 7 (Fiona_Frontend) complete. Gate 7 APPROVED — 70/70 vitest tests.
+Phase 8 (Dmitri_DevOps) complete. Gate 8 APPROVED — 233/233 pytest + 70/70 vitest tests.
 
 ## What's Been Built
 
@@ -40,7 +41,7 @@ Phase 7 (Fiona_Frontend) complete. Gate 7 APPROVED — 70/70 vitest tests.
 - [x] Full analysis + language features (Alice_Analysis — Phase 5) — comprehension quiz, grammar spotlight, voice blueprints, grammar deficits, text practice upload, Gate 5 APPROVED
 - [x] Flashcards SM-2 (Felix_Flashcards — Phase 6) — SM-2 spaced repetition, flashcard deck/card/review ORM, generate/due/review/stats endpoints, Gate 6 APPROVED
 - [x] Full frontend UI (Fiona_Frontend — Phase 7) — React/TypeScript UI for all 6 modules, typed API client layer, Zustand stores, Nav/Layout, 70/70 vitest tests, Gate 7 APPROVED
-- [ ] Cloud deployment (Dmitri_DevOps — Phase 8)
+- [x] Cloud deployment (Dmitri_DevOps — Phase 8) — production Dockerfile (CPU-only/slim), Fly.io (fra, 2 CPU/4 GB), Vercel SPA+proxy, deploy.yml CD workflow, Locust load test, Gate 8 APPROVED
 - [ ] Monetization (Anna_Auth — Phase 9)
 
 ## API Endpoints (current)
@@ -132,6 +133,12 @@ Full list: see `aria/.env.example` and `aria/docs/configuration.md`
 - SM-2 ease_factor is never serialised per-user — single review record per card; Phase 9 adds user_id to `flashcard_reviews` when auth is enforced
 - Flashcard generation from analysis `vocabulary_json` (list[str]) produces cards with `definition=None`; LLM enrichment deferred to Phase 7+
 
+## Known Issues / Tech Debt (Phase 8 additions)
+
+- Load test (`aria/locustfile.py`) targets the health + read endpoints only; write endpoints (audio upload, text upload, conversation create) require a running ML backend with API keys — excluded from CI load test
+- Vercel API proxy adds one extra hop for REST calls; can be eliminated with a custom domain pointing both frontend and `api.` subdomain to respective services (Phase 9+)
+- `min_machines_running = 1` prevents full scale-to-zero; revisit after Phase 9 auth enforcement enables per-user session tracking for smarter scale-down
+
 ## Known Issues / Tech Debt (Phase 7 additions)
 
 - `@testing-library/jest-dom` was missing from Phase 1 `package.json` — added in Phase 7 devDependencies
@@ -142,4 +149,4 @@ Full list: see `aria/.env.example` and `aria/docs/configuration.md`
 
 ## Next Agent
 
-Phase 8: Dmitri_DevOps (`phase-8/dmitri-devops`) — Cloud deployment: Fly.io backend + Vercel frontend, CI/CD, env secrets
+Phase 9: Anna_Auth (`phase-9/anna-auth`) — Monetization: Stripe subscriptions, Free/Pro tier enforcement, auth scope across all modules

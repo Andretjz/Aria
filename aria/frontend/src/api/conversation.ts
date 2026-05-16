@@ -17,6 +17,12 @@ export function createSession(language: string): Promise<ConversationSession> {
 }
 
 export function buildWsUrl(sessionId: string): string {
+  // In production (Vercel), WebSocket can't be proxied — use the Fly.io backend directly.
+  // Set VITE_WS_URL=wss://aria-backend.fly.dev in Vercel project settings.
+  const wsBase = import.meta.env.VITE_WS_URL as string | undefined
+  if (wsBase) {
+    return `${wsBase.replace(/\/$/, '')}/ws/v1/conversation/${sessionId}`
+  }
   const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws'
   const host = window.location.host
   return `${protocol}://${host}/ws/v1/conversation/${sessionId}`
