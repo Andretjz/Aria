@@ -43,3 +43,8 @@ class AnalysisSession(Base):
 
     fluency_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="complete")
+
+    # Phase 5 — Alice_Analysis: LLM-generated passes
+    quiz_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    grammar_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    voice_blueprints_json: Mapped[str | None] = mapped_column(Text, nullable=True)

@@ -1,6 +1,6 @@
 # Aria — Living Project Context
 
-Last updated by: Carlos_Conversation on 2026-05-16
+Last updated by: Felix_Flashcards on 2026-05-16
 
 ## Project State
 
@@ -8,7 +8,8 @@ Phase 1 complete (Sam_Architect scaffold). Gate 1 APPROVED.
 Phase 2 (Anna_Auth) complete. Gate 2 APPROVED — 36/36 tests.
 Phase 3 (Pete_Pipeline) complete. Gate 3 APPROVED — 70/70 tests.
 Phase 4 (Carlos_Conversation) complete. Gate 4 APPROVED — 113/113 tests.
-Alice_Analysis (phase-5) not yet started.
+Phase 5 (Alice_Analysis) complete. Gate 5 APPROVED — 167/167 tests.
+Phase 6 (Felix_Flashcards) complete. Gate 6 APPROVED — 214/214 tests.
 
 ## What's Been Built
 
@@ -35,8 +36,8 @@ Alice_Analysis (phase-5) not yet started.
 - [x] Auth (Anna_Auth — Phase 2) — JWT, User model, GDPR endpoints, Gate 2 APPROVED
 - [x] ML pipeline (Pete_Pipeline — Phase 3) — STT, diarization, speaker assignment, LLM analysis, Gate 3 APPROVED
 - [x] Live conversation (Carlos_Conversation — Phase 4) — WebSocket, VAD, turn detection, STT→LLM→TTS cycle, Gate 4 APPROVED
-- [ ] Full analysis + language features (Alice_Analysis — Phase 5)
-- [ ] Flashcards SM-2 (Felix_Flashcards — Phase 5)
+- [x] Full analysis + language features (Alice_Analysis — Phase 5) — comprehension quiz, grammar spotlight, voice blueprints, grammar deficits, text practice upload, Gate 5 APPROVED
+- [x] Flashcards SM-2 (Felix_Flashcards — Phase 6) — SM-2 spaced repetition, flashcard deck/card/review ORM, generate/due/review/stats endpoints, Gate 6 APPROVED
 - [ ] Full frontend UI (Fiona_Frontend — Phase 7)
 - [ ] Cloud deployment (Dmitri_DevOps — Phase 8)
 - [ ] Monetization (Anna_Auth — Phase 9)
@@ -45,7 +46,9 @@ Alice_Analysis (phase-5) not yet started.
 
 ```
 GET  /api/health                      → status, version, GPU info, Ollama status
-POST /api/v1/sessions/analyze         → LIVE — upload audio → speaker-labelled transcript + fluency + vocab (Phase 5 Alice extends)
+POST /api/v1/sessions/analyze         → LIVE — upload audio → 6-pass analysis (transcript, fluency, vocab, quiz, grammar, blueprints)
+GET  /api/v1/grammar/deficits         → LIVE — top-5 grammar errors aggregated across sessions
+POST /api/v1/text-practice/upload     → LIVE — upload PDF/TXT/DOCX → translation, CEFR vocab, quiz, grammar
 POST /api/v1/conversations/           → LIVE — create session (Phase 4 Carlos)
 WS   /ws/v1/conversation/{id}         → LIVE — live turn cycle (Phase 4 Carlos)
 POST /api/v1/auth/register            → LIVE — create account (FastAPI-Users)
@@ -56,18 +59,17 @@ GET  /api/v1/auth/me                  → LIVE — current user + language prefe
 PATCH /api/v1/auth/me/preferences     → LIVE — update language preferences
 GET  /api/v1/auth/me/export           → LIVE — GDPR Article 20 data portability
 DELETE /api/v1/auth/me                → LIVE — GDPR Article 17 right to erasure
-GET  /api/v1/flashcards/due           → STUB (Phase 5 Felix)
-POST /api/v1/flashcards/review        → STUB (Phase 5 Felix)
-POST /api/v1/flashcards/generate      → STUB (Phase 5 Felix)
-GET  /api/v1/grammar/deficits         → STUB (Phase 5 Alice)
-POST /api/v1/text-practice/upload     → STUB (Phase 5 Alice)
+GET  /api/v1/flashcards/due           → LIVE — cards with next_review <= today, ordered by priority
+POST /api/v1/flashcards/review        → LIVE — SM-2 quality rating (0-5), updates interval/ease_factor
+POST /api/v1/flashcards/generate      → LIVE — create deck + flashcards from vocabulary list
+GET  /api/v1/flashcards/stats         → LIVE — total_cards, cards_due, cards_mastered (interval >= 21)
+GET  /api/v1/grammar/exercises/{id}   → STUB (Phase 6+)
 ```
 
 ## Database Schema (current)
 
-Tables: `user`, `oauth_account`, `user_preferences`, `user_sessions`, `analysis_sessions`, `conversation_sessions`
-Migrations: `001_create_auth_tables.py`, `002_create_analysis_tables.py`, `003_create_conversation_tables.py`
-Pending: flashcard tables (Felix_Flashcards Phase 5)
+Tables: `user`, `oauth_account`, `user_preferences`, `user_sessions`, `analysis_sessions`, `conversation_sessions`, `flashcard_decks`, `flashcards`, `flashcard_reviews`
+Migrations: `001_create_auth_tables.py`, `002_create_analysis_tables.py`, `003_create_conversation_tables.py`, `004_extend_analysis_tables.py`, `005_create_flashcard_tables.py`
 
 ## Environment Variables Required
 
@@ -94,10 +96,6 @@ Full list: see `aria/.env.example` and `aria/docs/configuration.md`
 - Alembic env.py imports auth and flashcard models; both are stubs until Phase 2/5
 - structlog dependency must be installed before logging.py can be imported
 
-## Open Questions for Claude (Gate 1)
-
-None — Sam_Architect's scaffold is self-contained. All open questions are Phase 2+ scope.
-
 ## Known Issues / Tech Debt (Phase 2 additions)
 
 - `aria_test.db` in `tests/` directory — git-ignored, cleaned up on each test run
@@ -107,7 +105,6 @@ None — Sam_Architect's scaffold is self-contained. All open questions are Phas
 ## Known Issues / Tech Debt (Phase 3 additions)
 
 - `analysis_sessions.user_id` is nullable — anonymous sessions allowed in dev; Phase 9 enforces auth + billing per session
-- `POST /api/v1/sessions/analyze` returns basic fluency + vocab; Alice_Analysis (Phase 5) extends with comprehension quiz, grammar spotlight, voice blueprints
 - `_analyse_with_llm` uses `json.loads` first, then `parse_json_from_llm` fallback — works correctly but worth consolidating in Phase 5
 
 ## Known Issues / Tech Debt (Phase 4 additions)
@@ -117,6 +114,23 @@ None — Sam_Architect's scaffold is self-contained. All open questions are Phas
 - STT uses batch `transcribe_file` per turn (temp-file write + read); streaming STT can be wired via `transcribe_stream` in a future phase
 - `TestWebSocket` uses mock DB to avoid SQLite write-lock contention between TestClient thread and pytest-asyncio event loop — real DB persistence is tested only via REST endpoint tests
 
+## Known Issues / Tech Debt (Phase 5 additions)
+
+- `GET /api/v1/grammar/deficits` aggregates across ALL sessions (no user filtering); Phase 9 enforces user-scoped queries once auth is enforced
+- Voice blueprints are computed from transcript text (statistical), not raw audio features (prosody, pitch, etc.); upgrade in Phase 7+ if richer voice analysis is needed
+- Text practice: `POST /api/v1/text-practice/upload` truncates documents to 8,000 chars before sending to LLM — works for typical articles; long documents need chunking in Phase 6+
+- `GET /api/v1/grammar/exercises/{rule_id}` remains a stub — exercises are Phase 6+ scope
+- Flashcard deck integration in text practice is deferred to Felix_Flashcards (Phase 6)
+- `grammar_json` column is nullable — pre-Phase-5 sessions have NULL; deficits endpoint skips them gracefully
+- Pass 5 (quiz + grammar spotlight) makes 2 separate LLM calls per audio analysis; consider batching into one call in Phase 6+ to reduce latency
+
+## Known Issues / Tech Debt (Phase 6 additions)
+
+- `flashcard_decks.user_id` is nullable — anonymous decks in dev; Phase 9 enforces auth + user scoping
+- `GET /api/v1/flashcards/due` returns cards for ALL users (no user filtering); Phase 9 adds auth enforcement
+- SM-2 ease_factor is never serialised per-user — single review record per card; Phase 9 adds user_id to `flashcard_reviews` when auth is enforced
+- Flashcard generation from analysis `vocabulary_json` (list[str]) produces cards with `definition=None`; LLM enrichment deferred to Phase 7+
+
 ## Next Agent
 
-Phase 5: Alice_Analysis (`phase-5/alice-analysis`) — comprehension quiz, grammar spotlight, voice blueprints; extends `AnalysisSessionRead` and the analysis pipeline
+Phase 7: Fiona_Frontend (`phase-7/fiona-frontend`) — Full React/TypeScript UI for all six modules

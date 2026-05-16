@@ -1,17 +1,14 @@
-"""Audio analysis pipeline — Pete_Pipeline (Phase 3).
+"""Audio analysis pipeline — Pete_Pipeline (Phase 3) + Alice_Analysis (Phase 5).
 
-Orchestrates: STT → diarization → speaker assignment → LLM analysis.
+Orchestrates a 6-pass pipeline:
+  Pass 1: faster-whisper STT (transcribe_file) — segments + detected language
+  Pass 2: pyannote diarization (diarise) — speaker-turn timeline
+  Pass 3: Speaker assignment — max-overlap join between STT and diarization
+  Pass 4: Ollama LLM — fluency score + vocabulary list
+  Pass 5: Ollama LLM — comprehension quiz (5a) + grammar spotlight (5b)
+  Pass 6: Pure-Python — per-speaker voice blueprints (tempo, fillers, richness)
 
-Pass order
-----------
-1. faster-whisper STT (transcribe_file) — segments + detected language
-2. pyannote diarization (diarise) — speaker-turn timeline
-3. Speaker assignment — max-overlap join between STT segments and diar turns
-4. Ollama LLM (generate_complete) — fluency score + vocabulary list
-
-LLM failures are soft: the pipeline returns None fluency_score and an empty
-vocabulary list rather than raising. This keeps analysis available even when
-Ollama is offline (e.g. CI).
+LLM failures are soft: the pipeline returns empty lists rather than raising.
 """
 from __future__ import annotations
 
@@ -71,10 +68,14 @@ class PipelineResult:
     num_speakers: int
     fluency_score: float | None
     vocabulary: list[str] = field(default_factory=list)
+    # Phase 5 extensions
+    quiz: list[dict] = field(default_factory=list)
+    grammar_spotlights: list[dict] = field(default_factory=list)
+    voice_blueprints: list[dict] = field(default_factory=list)
 
 
 class AnalysisPipeline:
-    """Orchestrates STT → diarization → speaker assignment → LLM analysis.
+    """Orchestrates 6-pass audio analysis pipeline.
 
     Instantiated once per request via FastAPI dependency injection.
 
@@ -175,14 +176,14 @@ class AnalysisPipeline:
         path: Path,
         language: str = "auto",
     ) -> PipelineResult:
-        """Run the full analysis pipeline on an audio file.
+        """Run the full 6-pass analysis pipeline on an audio file.
 
         Args:
             path: Absolute path to the audio file (already validated).
             language: BCP-47 code or "auto" for faster-whisper detection.
 
         Returns:
-            PipelineResult with speaker-labelled segments and LLM analysis.
+            PipelineResult with speaker-labelled segments and all LLM analysis.
 
         Raises:
             STTError: If transcription fails — no result available.
@@ -221,6 +222,26 @@ class AnalysisPipeline:
         )
         log.info("pipeline_llm_done", fluency=fluency, vocab_count=len(vocabulary))
 
+        # Pass 5: Comprehension quiz + grammar spotlight — soft failure
+        from aria.backend.modules.analysis.quiz import generate_quiz
+        from aria.backend.modules.analysis.grammar import generate_grammar_spotlight
+
+        quiz = await generate_quiz(transcript.full_text, transcript.language, self._llm)
+        grammar_spotlights = await generate_grammar_spotlight(
+            transcript.full_text, transcript.language, self._llm
+        )
+        log.info(
+            "pipeline_pass5_done",
+            quiz_questions=len(quiz),
+            grammar_rules=len(grammar_spotlights),
+        )
+
+        # Pass 6: Voice blueprints — pure Python, no failure path
+        from aria.backend.modules.analysis.voice_blueprint import compute_voice_blueprints
+
+        voice_blueprints = compute_voice_blueprints(speaker_segments)
+        log.info("pipeline_pass6_done", blueprints=len(voice_blueprints))
+
         return PipelineResult(
             segments=speaker_segments,
             language=transcript.language,
@@ -228,4 +249,7 @@ class AnalysisPipeline:
             num_speakers=diarization.num_speakers or 1,
             fluency_score=fluency,
             vocabulary=vocabulary,
+            quiz=quiz,
+            grammar_spotlights=grammar_spotlights,
+            voice_blueprints=voice_blueprints,
         )

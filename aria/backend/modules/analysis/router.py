@@ -2,7 +2,7 @@
 
 POST /api/v1/sessions/analyze — upload audio → full analysis JSON.
 Pete_Pipeline implements Passes 1–4 (STT, diarization, speaker assignment,
-LLM fluency/vocab). Alice_Analysis (Phase 5) extends with Passes 5–6
+LLM fluency/vocab). Alice_Analysis (Phase 5) adds Passes 5–6
 (comprehension quiz, grammar spotlight, voice blueprints).
 """
 from __future__ import annotations
@@ -20,7 +20,13 @@ from aria.backend.core.logging import get_logger
 from aria.backend.database import get_db
 from aria.backend.modules.analysis.models import AnalysisSession
 from aria.backend.modules.analysis.pipeline import AnalysisPipeline
-from aria.backend.modules.analysis.schemas import AnalysisSessionRead, SpeakerSegmentRead
+from aria.backend.modules.analysis.schemas import (
+    AnalysisSessionRead,
+    GrammarSpotlight,
+    QuizQuestion,
+    SpeakerSegmentRead,
+    VoiceBlueprint,
+)
 from aria.backend.services.factory import (
     get_diarization_service,
     get_llm_service,
@@ -51,9 +57,9 @@ def get_pipeline() -> AnalysisPipeline:
     status_code=200,
     summary="Analyse an uploaded audio file",
     description=(
-        "Runs the Aria analysis pipeline on an uploaded audio file. "
-        "Returns speaker-labelled transcript, fluency score, and vocabulary list. "
-        "Phase 5 (Alice_Analysis) will add comprehension quiz and grammar spotlight. "
+        "Runs the Aria 6-pass analysis pipeline on an uploaded audio file. "
+        "Returns speaker-labelled transcript, fluency score, vocabulary list, "
+        "comprehension quiz, grammar spotlight, and per-speaker voice blueprints. "
         "Supports de/en/es/fr/it as target languages; input language auto-detected."
     ),
     responses={
@@ -69,7 +75,7 @@ async def analyze_session(
     pipeline: AnalysisPipeline = Depends(get_pipeline),
     db: AsyncSession = Depends(get_db),
 ) -> AnalysisSessionRead:
-    """Run the analysis pipeline on an uploaded audio file.
+    """Run the 6-pass analysis pipeline on an uploaded audio file.
 
     Args:
         audio: Uploaded audio file (multipart/form-data).
@@ -78,7 +84,7 @@ async def analyze_session(
         db: Injected database session.
 
     Returns:
-        AnalysisSessionRead with speaker-labelled transcript and LLM analysis.
+        AnalysisSessionRead with all analysis passes included.
 
     Raises:
         413: File exceeds MAX_UPLOAD_SIZE_MB.
@@ -121,6 +127,9 @@ async def analyze_session(
         transcript_json=json.dumps([s.to_dict() for s in result.segments]),
         fluency_score=result.fluency_score,
         vocabulary_json=json.dumps(result.vocabulary),
+        quiz_json=json.dumps(result.quiz) if result.quiz else None,
+        grammar_json=json.dumps(result.grammar_spotlights) if result.grammar_spotlights else None,
+        voice_blueprints_json=json.dumps(result.voice_blueprints) if result.voice_blueprints else None,
         status="complete",
     )
     db.add(session)
@@ -138,4 +147,7 @@ async def analyze_session(
         fluency_score=session.fluency_score,
         vocabulary=json.loads(session.vocabulary_json),
         status=session.status,
+        quiz=[QuizQuestion(**q) for q in json.loads(session.quiz_json or "[]")],
+        grammar_spotlights=[GrammarSpotlight(**g) for g in json.loads(session.grammar_json or "[]")],
+        voice_blueprints=[VoiceBlueprint(**v) for v in json.loads(session.voice_blueprints_json or "[]")],
     )
