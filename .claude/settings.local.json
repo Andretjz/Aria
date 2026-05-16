@@ -17,7 +17,13 @@
       "Bash(python -m pytest tests/test_pipeline.py::TestPipelineRun::test_run_success tests/test_pipeline.py::TestAnalyzeEndpoint::test_analyze_no_file_returns_422 -v --tb=long)",
       "Bash(python -m pytest tests/test_pipeline.py::TestPipelineRun::test_run_success tests/test_pipeline.py::TestAnalyzeEndpoint::test_analyze_no_file_returns_422 -v --tb=short)",
       "Bash(python -m pytest backend/tests/test_conversation.py -v --tb=short)",
-      "Bash(python -m pytest backend/tests/ -v --tb=short)"
+      "Bash(python -m pytest backend/tests/ -v --tb=short)",
+      "Bash(python -m pytest tests/ -x -q)",
+      "Bash(python -m pytest tests/test_analysis_phase5.py -v)",
+      "Bash(python -m pytest tests/test_flashcards_phase6.py -v)",
+      "Bash(python -m pytest -v)",
+      "Bash(git push *)",
+      "Bash(gh pr create --title 'feat: Phase 6 — Felix_Flashcards SM-2 spaced repetition' --body ' *)"
     ]
   }
 }
