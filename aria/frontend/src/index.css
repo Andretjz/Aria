@@ -1,0 +1,70 @@
+/* Aria design tokens — carried forward from Transcribit, extended for 5 modules.
+   Fiona_Frontend (Phase 7) extends these into the full Tailwind theme. */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Colour palette */
+  --color-primary: #6C63FF;        /* Aria violet */
+  --color-primary-light: #8B84FF;
+  --color-primary-dark: #4B43CC;
+  --color-accent: #FF6B6B;         /* error / warning */
+  --color-success: #4CAF50;
+  --color-warning: #FF9800;
+  --color-surface: #FFFFFF;
+  --color-surface-alt: #F8F8FC;
+  --color-border: #E0DFF5;
+  --color-text: #1A1A2E;
+  --color-text-muted: #6B6B8A;
+
+  /* Typography */
+  --font-sans: 'Syne', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  /* Spacing */
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-full: 9999px;
+
+  /* Minimum touch target (WCAG 2.5.5) */
+  --tap-target-min: 44px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-surface: #12121E;
+    --color-surface-alt: #1C1C2E;
+    --color-border: #2A2A40;
+    --color-text: #F0F0FF;
+    --color-text-muted: #9999BB;
+  }
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-family: var(--font-sans);
+  color: var(--color-text);
+  background: var(--color-surface);
+  /* Prevent horizontal scroll on mobile */
+  overflow-x: hidden;
+}
+
+body {
+  min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Accessible focus ring */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
