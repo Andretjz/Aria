@@ -408,10 +408,18 @@ class TestExtendedAnalysisEndpoint:
             }],
         ))
 
+        from aria.backend.modules.auth.users import current_active_user
+        from aria.backend.modules.billing.dependencies import check_daily_analysis
+        from aria.backend.tests.conftest import MOCK_USER
+
         app.dependency_overrides[get_pipeline] = lambda: mock_pipeline
+        app.dependency_overrides[current_active_user] = lambda: MOCK_USER
+        app.dependency_overrides[check_daily_analysis] = lambda: None
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
             yield ac, mock_pipeline
         app.dependency_overrides.pop(get_pipeline, None)
+        app.dependency_overrides.pop(current_active_user, None)
+        app.dependency_overrides.pop(check_daily_analysis, None)
 
     def _make_wav(self):
         import io
@@ -514,10 +522,12 @@ class TestExtendedAnalysisEndpoint:
         assert "vocabulary_richness" in vb[0]
 
     @pytest.mark.asyncio
-    async def test_analyze_empty_quiz_when_pipeline_returns_empty(self, client):
+    async def test_analyze_empty_quiz_when_pipeline_returns_empty(self):
         from aria.backend.main import app
         from aria.backend.modules.analysis.router import get_pipeline
         from aria.backend.modules.analysis.pipeline import AnalysisPipeline, PipelineResult, SpeakerSegment
+        from aria.backend.modules.auth.users import current_active_user
+        from aria.backend.tests.conftest import MOCK_USER
         from httpx import ASGITransport, AsyncClient
 
         mock_pipeline = AsyncMock(spec=AnalysisPipeline)
@@ -528,7 +538,11 @@ class TestExtendedAnalysisEndpoint:
             num_speakers=1,
             fluency_score=None,
         ))
+        from aria.backend.modules.billing.dependencies import check_daily_analysis
+
         app.dependency_overrides[get_pipeline] = lambda: mock_pipeline
+        app.dependency_overrides[current_active_user] = lambda: MOCK_USER
+        app.dependency_overrides[check_daily_analysis] = lambda: None
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
             import io
             import struct
@@ -542,6 +556,8 @@ class TestExtendedAnalysisEndpoint:
                 files={"audio": ("t.wav", buf.getvalue(), "audio/wav")},
             )
         app.dependency_overrides.pop(get_pipeline, None)
+        app.dependency_overrides.pop(current_active_user, None)
+        app.dependency_overrides.pop(check_daily_analysis, None)
         assert resp.status_code == 200
         assert resp.json()["quiz"] == []
         assert resp.json()["grammar_spotlights"] == []
@@ -551,26 +567,28 @@ class TestExtendedAnalysisEndpoint:
 # ── TestGrammarDeficitsEndpoint ───────────────────────────────────────────────
 
 class TestGrammarDeficitsEndpoint:
-    """GET /api/v1/grammar/deficits — aggregate grammar errors."""
+    """GET /api/v1/grammar/deficits — aggregate grammar errors for authenticated user."""
 
     @pytest.mark.asyncio
-    async def test_deficits_returns_200(self, client):
-        resp = await client.get("/api/v1/grammar/deficits")
+    async def test_deficits_returns_200(self, authed_client):
+        resp = await authed_client.get("/api/v1/grammar/deficits")
         assert resp.status_code == 200
 
     @pytest.mark.asyncio
-    async def test_deficits_returns_list(self, client):
-        resp = await client.get("/api/v1/grammar/deficits")
+    async def test_deficits_returns_list(self, authed_client):
+        resp = await authed_client.get("/api/v1/grammar/deficits")
         assert isinstance(resp.json(), list)
 
     @pytest.mark.asyncio
-    async def test_deficits_ignores_null_grammar_json(self, client):
+    async def test_deficits_ignores_null_grammar_json(self, authed_client):
         from aria.backend.database import AsyncSessionFactory
         from aria.backend.modules.analysis.models import AnalysisSession
+        from aria.backend.tests.conftest import MOCK_USER
 
         # Insert a session with NULL grammar_json — should not affect deficits count
         async with AsyncSessionFactory() as db:
             session = AnalysisSession(
+                user_id=MOCK_USER.id,
                 audio_filename="no_grammar.wav",
                 language="en",
                 duration_seconds=5.0,
@@ -582,7 +600,7 @@ class TestGrammarDeficitsEndpoint:
             db.add(session)
             await db.commit()
 
-        resp = await client.get("/api/v1/grammar/deficits")
+        resp = await authed_client.get("/api/v1/grammar/deficits")
         assert resp.status_code == 200
         data = resp.json()
         assert isinstance(data, list)
@@ -592,9 +610,10 @@ class TestGrammarDeficitsEndpoint:
             assert entry["total_frequency"] > 0
 
     @pytest.mark.asyncio
-    async def test_deficits_aggregates_across_sessions(self, client):
+    async def test_deficits_aggregates_across_sessions(self, authed_client):
         from aria.backend.database import AsyncSessionFactory
         from aria.backend.modules.analysis.models import AnalysisSession
+        from aria.backend.tests.conftest import MOCK_USER
 
         grammar_data = json.dumps([
             {"rule": "Past tense", "example": "I goed", "correction": "I went", "frequency": 3},
@@ -603,6 +622,7 @@ class TestGrammarDeficitsEndpoint:
 
         async with AsyncSessionFactory() as db:
             session = AnalysisSession(
+                user_id=MOCK_USER.id,
                 audio_filename="test.wav",
                 language="en",
                 duration_seconds=10.0,
@@ -614,7 +634,7 @@ class TestGrammarDeficitsEndpoint:
             db.add(session)
             await db.commit()
 
-        resp = await client.get("/api/v1/grammar/deficits")
+        resp = await authed_client.get("/api/v1/grammar/deficits")
         assert resp.status_code == 200
         data = resp.json()
         assert isinstance(data, list)
@@ -623,9 +643,10 @@ class TestGrammarDeficitsEndpoint:
         assert "Past tense" in rules
 
     @pytest.mark.asyncio
-    async def test_deficits_ordered_by_frequency(self, client):
+    async def test_deficits_ordered_by_frequency(self, authed_client):
         from aria.backend.database import AsyncSessionFactory
         from aria.backend.modules.analysis.models import AnalysisSession
+        from aria.backend.tests.conftest import MOCK_USER
 
         grammar_data = json.dumps([
             {"rule": "Rare rule", "example": "ex", "correction": "cor", "frequency": 1},
@@ -634,6 +655,7 @@ class TestGrammarDeficitsEndpoint:
 
         async with AsyncSessionFactory() as db:
             session = AnalysisSession(
+                user_id=MOCK_USER.id,
                 audio_filename="order_test.wav",
                 language="en",
                 duration_seconds=5.0,
@@ -645,7 +667,7 @@ class TestGrammarDeficitsEndpoint:
             db.add(session)
             await db.commit()
 
-        resp = await client.get("/api/v1/grammar/deficits")
+        resp = await authed_client.get("/api/v1/grammar/deficits")
         assert resp.status_code == 200
         data = resp.json()
         if len(data) >= 2:
@@ -654,9 +676,10 @@ class TestGrammarDeficitsEndpoint:
             assert frequencies == sorted(frequencies, reverse=True)
 
     @pytest.mark.asyncio
-    async def test_deficits_limited_to_five(self, client):
+    async def test_deficits_limited_to_five(self, authed_client):
         from aria.backend.database import AsyncSessionFactory
         from aria.backend.modules.analysis.models import AnalysisSession
+        from aria.backend.tests.conftest import MOCK_USER
 
         grammar_data = json.dumps([
             {"rule": f"Rule {i}", "example": "ex", "correction": "cor", "frequency": i + 1}
@@ -665,6 +688,7 @@ class TestGrammarDeficitsEndpoint:
 
         async with AsyncSessionFactory() as db:
             session = AnalysisSession(
+                user_id=MOCK_USER.id,
                 audio_filename="many_rules.wav",
                 language="en",
                 duration_seconds=5.0,
@@ -676,17 +700,19 @@ class TestGrammarDeficitsEndpoint:
             db.add(session)
             await db.commit()
 
-        resp = await client.get("/api/v1/grammar/deficits")
+        resp = await authed_client.get("/api/v1/grammar/deficits")
         assert resp.status_code == 200
         assert len(resp.json()) <= 5
 
     @pytest.mark.asyncio
-    async def test_deficits_response_schema(self, client):
+    async def test_deficits_response_schema(self, authed_client):
         from aria.backend.database import AsyncSessionFactory
         from aria.backend.modules.analysis.models import AnalysisSession
+        from aria.backend.tests.conftest import MOCK_USER
 
         async with AsyncSessionFactory() as db:
             session = AnalysisSession(
+                user_id=MOCK_USER.id,
                 audio_filename="schema_test.wav",
                 language="en",
                 duration_seconds=5.0,
@@ -700,7 +726,7 @@ class TestGrammarDeficitsEndpoint:
             db.add(session)
             await db.commit()
 
-        resp = await client.get("/api/v1/grammar/deficits")
+        resp = await authed_client.get("/api/v1/grammar/deficits")
         assert resp.status_code == 200
         data = resp.json()
         if data:
@@ -718,7 +744,9 @@ class TestTextPracticeEndpoint:
     @pytest_asyncio.fixture
     async def client_with_mocks(self):
         from aria.backend.main import app
+        from aria.backend.modules.auth.users import current_active_user
         from aria.backend.modules.text_practice.router import get_text_llm, get_text_translation
+        from aria.backend.tests.conftest import MOCK_USER
         from httpx import ASGITransport, AsyncClient
 
         mock_llm = AsyncMock()
@@ -729,16 +757,18 @@ class TestTextPracticeEndpoint:
 
         app.dependency_overrides[get_text_llm] = lambda: mock_llm
         app.dependency_overrides[get_text_translation] = lambda: mock_translation
+        app.dependency_overrides[current_active_user] = lambda: MOCK_USER
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
             yield ac, mock_llm, mock_translation
 
         app.dependency_overrides.pop(get_text_llm, None)
         app.dependency_overrides.pop(get_text_translation, None)
+        app.dependency_overrides.pop(current_active_user, None)
 
     @pytest.mark.asyncio
-    async def test_text_upload_no_file_returns_422(self, client):
-        resp = await client.post("/api/v1/text-practice/upload")
+    async def test_text_upload_no_file_returns_422(self, authed_client):
+        resp = await authed_client.post("/api/v1/text-practice/upload")
         assert resp.status_code == 422
 
     @pytest.mark.asyncio

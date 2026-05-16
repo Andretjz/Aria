@@ -10,6 +10,9 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aria.backend.database import get_db
+from aria.backend.modules.auth.models import User
+from aria.backend.modules.auth.users import current_active_user
+from aria.backend.modules.billing.dependencies import check_flashcard_limit
 from aria.backend.modules.flashcards.models import Flashcard, FlashcardDeck, FlashcardReview
 from aria.backend.modules.flashcards.schemas import (
     FlashcardDeckRead,
@@ -25,6 +28,7 @@ from aria.backend.modules.flashcards.schemas import (
 router = APIRouter()
 
 DB = Annotated[AsyncSession, Depends(get_db)]
+CurrentUser = Annotated[User, Depends(current_active_user)]
 
 
 def apply_sm2(review: FlashcardReview, quality: int) -> None:
@@ -53,13 +57,17 @@ def apply_sm2(review: FlashcardReview, quality: int) -> None:
 
 
 @router.get("/due", response_model=list[FlashcardDueRead])
-async def get_due(db: DB) -> list[FlashcardDueRead]:
-    """Return all cards whose next_review date is today or earlier."""
+async def get_due(db: DB, current_user: CurrentUser) -> list[FlashcardDueRead]:
+    """Return cards due today or earlier for the authenticated user."""
     today = date.today()
     result = await db.execute(
         select(Flashcard, FlashcardReview)
         .join(FlashcardReview, FlashcardReview.flashcard_id == Flashcard.id)
-        .where(FlashcardReview.next_review <= today)
+        .join(FlashcardDeck, Flashcard.deck_id == FlashcardDeck.id)
+        .where(
+            FlashcardReview.next_review <= today,
+            FlashcardDeck.user_id == current_user.id,
+        )
         .order_by(FlashcardReview.next_review)
     )
     return [
@@ -72,10 +80,16 @@ async def get_due(db: DB) -> list[FlashcardDueRead]:
 
 
 @router.post("/review", response_model=FlashcardReviewRead)
-async def submit_review(body: ReviewRequest, db: DB) -> FlashcardReviewRead:
+async def submit_review(body: ReviewRequest, db: DB, current_user: CurrentUser) -> FlashcardReviewRead:
     """Submit a SM-2 quality rating for a card and update its review schedule."""
     row = await db.execute(
-        select(FlashcardReview).where(FlashcardReview.flashcard_id == body.flashcard_id)
+        select(FlashcardReview)
+        .join(Flashcard, FlashcardReview.flashcard_id == Flashcard.id)
+        .join(FlashcardDeck, Flashcard.deck_id == FlashcardDeck.id)
+        .where(
+            FlashcardReview.flashcard_id == body.flashcard_id,
+            FlashcardDeck.user_id == current_user.id,
+        )
     )
     review = row.scalar_one_or_none()
     if review is None:
@@ -87,9 +101,15 @@ async def submit_review(body: ReviewRequest, db: DB) -> FlashcardReviewRead:
 
 
 @router.post("/generate", response_model=GenerateResponse, status_code=status.HTTP_201_CREATED)
-async def generate_cards(body: GenerateRequest, db: DB) -> GenerateResponse:
+async def generate_cards(
+    body: GenerateRequest,
+    db: DB,
+    current_user: CurrentUser,
+    _quota: None = Depends(check_flashcard_limit),
+) -> GenerateResponse:
     """Create a deck and flashcards from a vocabulary list."""
     deck = FlashcardDeck(
+        user_id=current_user.id,
         name=body.deck_name,
         source_language=body.source_language,
         target_language=body.target_language,
@@ -131,23 +151,40 @@ async def generate_cards(body: GenerateRequest, db: DB) -> GenerateResponse:
 
 
 @router.get("/stats", response_model=StatsRead)
-async def get_stats(db: DB) -> StatsRead:
-    """Return aggregate learning statistics."""
+async def get_stats(db: DB, current_user: CurrentUser) -> StatsRead:
+    """Return aggregate learning statistics for the authenticated user."""
     today = date.today()
 
-    total = (await db.execute(select(func.count()).select_from(Flashcard))).scalar() or 0
+    total = (
+        await db.execute(
+            select(func.count())
+            .select_from(Flashcard)
+            .join(FlashcardDeck, Flashcard.deck_id == FlashcardDeck.id)
+            .where(FlashcardDeck.user_id == current_user.id)
+        )
+    ).scalar() or 0
     due = (
         await db.execute(
             select(func.count())
             .select_from(FlashcardReview)
-            .where(FlashcardReview.next_review <= today)
+            .join(Flashcard, FlashcardReview.flashcard_id == Flashcard.id)
+            .join(FlashcardDeck, Flashcard.deck_id == FlashcardDeck.id)
+            .where(
+                FlashcardReview.next_review <= today,
+                FlashcardDeck.user_id == current_user.id,
+            )
         )
     ).scalar() or 0
     mastered = (
         await db.execute(
             select(func.count())
             .select_from(FlashcardReview)
-            .where(FlashcardReview.interval >= 21)
+            .join(Flashcard, FlashcardReview.flashcard_id == Flashcard.id)
+            .join(FlashcardDeck, Flashcard.deck_id == FlashcardDeck.id)
+            .where(
+                FlashcardReview.interval >= 21,
+                FlashcardDeck.user_id == current_user.id,
+            )
         )
     ).scalar() or 0
 
