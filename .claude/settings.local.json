@@ -23,7 +23,11 @@
       "Bash(python -m pytest tests/test_flashcards_phase6.py -v)",
       "Bash(python -m pytest -v)",
       "Bash(git push *)",
-      "Bash(gh pr create --title 'feat: Phase 6 — Felix_Flashcards SM-2 spaced repetition' --body ' *)"
+      "Bash(gh pr create --title 'feat: Phase 6 — Felix_Flashcards SM-2 spaced repetition' --body ' *)",
+      "Bash(npx vitest *)",
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(gh pr create --title 'feat: Phase 7 — Fiona_Frontend full React/TypeScript UI' --body ' *)"
     ]
   }
 }

@@ -1,6 +1,6 @@
 # Aria — Living Project Context
 
-Last updated by: Felix_Flashcards on 2026-05-16
+Last updated by: Fiona_Frontend on 2026-05-16
 
 ## Project State
 
@@ -10,6 +10,7 @@ Phase 3 (Pete_Pipeline) complete. Gate 3 APPROVED — 70/70 tests.
 Phase 4 (Carlos_Conversation) complete. Gate 4 APPROVED — 113/113 tests.
 Phase 5 (Alice_Analysis) complete. Gate 5 APPROVED — 167/167 tests.
 Phase 6 (Felix_Flashcards) complete. Gate 6 APPROVED — 214/214 tests.
+Phase 7 (Fiona_Frontend) complete. Gate 7 APPROVED — 70/70 vitest tests.
 
 ## What's Been Built
 
@@ -38,7 +39,7 @@ Phase 6 (Felix_Flashcards) complete. Gate 6 APPROVED — 214/214 tests.
 - [x] Live conversation (Carlos_Conversation — Phase 4) — WebSocket, VAD, turn detection, STT→LLM→TTS cycle, Gate 4 APPROVED
 - [x] Full analysis + language features (Alice_Analysis — Phase 5) — comprehension quiz, grammar spotlight, voice blueprints, grammar deficits, text practice upload, Gate 5 APPROVED
 - [x] Flashcards SM-2 (Felix_Flashcards — Phase 6) — SM-2 spaced repetition, flashcard deck/card/review ORM, generate/due/review/stats endpoints, Gate 6 APPROVED
-- [ ] Full frontend UI (Fiona_Frontend — Phase 7)
+- [x] Full frontend UI (Fiona_Frontend — Phase 7) — React/TypeScript UI for all 6 modules, typed API client layer, Zustand stores, Nav/Layout, 70/70 vitest tests, Gate 7 APPROVED
 - [ ] Cloud deployment (Dmitri_DevOps — Phase 8)
 - [ ] Monetization (Anna_Auth — Phase 9)
 
@@ -131,6 +132,14 @@ Full list: see `aria/.env.example` and `aria/docs/configuration.md`
 - SM-2 ease_factor is never serialised per-user — single review record per card; Phase 9 adds user_id to `flashcard_reviews` when auth is enforced
 - Flashcard generation from analysis `vocabulary_json` (list[str]) produces cards with `definition=None`; LLM enrichment deferred to Phase 7+
 
+## Known Issues / Tech Debt (Phase 7 additions)
+
+- `@testing-library/jest-dom` was missing from Phase 1 `package.json` — added in Phase 7 devDependencies
+- Auth integration is frontend-only (calls API but no token refresh or session persistence on page reload); Phase 9 enforces auth scope across all modules
+- Conversation WebSocket uses text-mode only (`type: "text"` JSON frames); voice recording via `MediaRecorder` is wired into the UI skeleton but sending binary audio frames is deferred to Phase 8+
+- LLM enrichment for flashcard generation (word → definition via LLM) remains deferred — the generate endpoint accepts `vocabulary: VocabItem[]` but the frontend GenerateDeck UI is not yet exposed; Phase 8 integrates it via the Analysis/TextPractice results flow
+- `i18next`/`react-i18next` are in devDependencies from Phase 1 scaffold but not yet wired — UI is English-only; internationalisation deferred to Phase 9
+
 ## Next Agent
 
-Phase 7: Fiona_Frontend (`phase-7/fiona-frontend`) — Full React/TypeScript UI for all six modules
+Phase 8: Dmitri_DevOps (`phase-8/dmitri-devops`) — Cloud deployment: Fly.io backend + Vercel frontend, CI/CD, env secrets
