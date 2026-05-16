@@ -19,6 +19,8 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from aria.backend.core.config import settings
 from aria.backend.core.llm_utils import parse_json_from_llm
 from aria.backend.core.logging import get_logger
+from aria.backend.modules.auth.models import User
+from aria.backend.modules.auth.users import current_active_user
 from aria.backend.modules.text_practice.schemas import (
     CEFRVocabItem,
     TextGrammarSpotlight,
@@ -110,6 +112,7 @@ async def upload_text(
     target_lang: str = Form("de", description="Target language to practice (de/en/es/fr/it)"),
     llm: LLMService = Depends(get_text_llm),
     translation: TranslationService = Depends(get_text_translation),
+    current_user: User = Depends(current_active_user),
 ) -> TextPracticeRead:
     """Upload and analyse a text document.
 

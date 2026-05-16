@@ -324,15 +324,15 @@ class TestCreateSessionEndpoint:
     """POST /api/v1/conversations/ — REST endpoint tests."""
 
     @pytest.mark.asyncio
-    async def test_create_session_returns_201(self, client):
-        resp = await client.post(
+    async def test_create_session_returns_201(self, authed_client):
+        resp = await authed_client.post(
             "/api/v1/conversations/", json={"language": "en"}
         )
         assert resp.status_code == 201
 
     @pytest.mark.asyncio
-    async def test_create_session_response_schema(self, client):
-        resp = await client.post(
+    async def test_create_session_response_schema(self, authed_client):
+        resp = await authed_client.post(
             "/api/v1/conversations/", json={"language": "de"}
         )
         data = resp.json()
@@ -343,21 +343,21 @@ class TestCreateSessionEndpoint:
         assert "created_at" in data
 
     @pytest.mark.asyncio
-    async def test_create_session_default_language(self, client):
-        resp = await client.post("/api/v1/conversations/", json={})
+    async def test_create_session_default_language(self, authed_client):
+        resp = await authed_client.post("/api/v1/conversations/", json={})
         assert resp.status_code == 201
         assert resp.json()["language"] == "en"
 
     @pytest.mark.asyncio
-    async def test_create_session_unsupported_language_returns_422(self, client):
-        resp = await client.post(
+    async def test_create_session_unsupported_language_returns_422(self, authed_client):
+        resp = await authed_client.post(
             "/api/v1/conversations/", json={"language": "zh"}
         )
         assert resp.status_code == 422
 
     @pytest.mark.asyncio
-    async def test_create_session_stores_in_db(self, client):
-        resp = await client.post(
+    async def test_create_session_stores_in_db(self, authed_client):
+        resp = await authed_client.post(
             "/api/v1/conversations/", json={"language": "es"}
         )
         assert resp.status_code == 201
@@ -365,17 +365,17 @@ class TestCreateSessionEndpoint:
         assert uuid.UUID(session_id)  # valid UUID
 
     @pytest.mark.asyncio
-    async def test_create_session_all_five_languages(self, client):
+    async def test_create_session_all_five_languages(self, authed_client):
         for lang in ("de", "en", "es", "fr", "it"):
-            resp = await client.post(
+            resp = await authed_client.post(
                 "/api/v1/conversations/", json={"language": lang}
             )
             assert resp.status_code == 201, f"Failed for language={lang}"
             assert resp.json()["language"] == lang
 
     @pytest.mark.asyncio
-    async def test_create_session_ended_at_is_null(self, client):
-        resp = await client.post("/api/v1/conversations/", json={"language": "fr"})
+    async def test_create_session_ended_at_is_null(self, authed_client):
+        resp = await authed_client.post("/api/v1/conversations/", json={"language": "fr"})
         assert resp.json()["ended_at"] is None
 
 

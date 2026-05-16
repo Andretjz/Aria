@@ -162,44 +162,44 @@ class TestFlashcardModels:
 
 class TestGenerateEndpoint:
     @pytest.mark.asyncio
-    async def test_generate_returns_201(self, client):
-        resp = await client.post("/api/v1/flashcards/generate", json=_generate_body())
+    async def test_generate_returns_201(self, authed_client):
+        resp = await authed_client.post("/api/v1/flashcards/generate", json=_generate_body())
         assert resp.status_code == 201
 
     @pytest.mark.asyncio
-    async def test_generate_response_has_deck(self, client):
-        resp = await client.post("/api/v1/flashcards/generate", json=_generate_body())
+    async def test_generate_response_has_deck(self, authed_client):
+        resp = await authed_client.post("/api/v1/flashcards/generate", json=_generate_body())
         data = resp.json()
         assert "deck" in data
         assert data["deck"]["name"] == "Test Deck"
 
     @pytest.mark.asyncio
-    async def test_generate_response_has_cards(self, client):
-        resp = await client.post("/api/v1/flashcards/generate", json=_generate_body())
+    async def test_generate_response_has_cards(self, authed_client):
+        resp = await authed_client.post("/api/v1/flashcards/generate", json=_generate_body())
         data = resp.json()
         assert "cards" in data
         assert isinstance(data["cards"], list)
 
     @pytest.mark.asyncio
-    async def test_generate_cards_created_count(self, client):
+    async def test_generate_cards_created_count(self, authed_client):
         body = _generate_body(["apple", "banana", "cherry"])
-        resp = await client.post("/api/v1/flashcards/generate", json=body)
+        resp = await authed_client.post("/api/v1/flashcards/generate", json=body)
         data = resp.json()
         assert data["cards_created"] == 3
         assert len(data["cards"]) == 3
 
     @pytest.mark.asyncio
-    async def test_generate_empty_vocabulary_returns_zero_cards(self, client):
+    async def test_generate_empty_vocabulary_returns_zero_cards(self, authed_client):
         body = {"deck_name": "Empty Deck", "source_language": "en", "target_language": "en", "vocabulary": []}
-        resp = await client.post("/api/v1/flashcards/generate", json=body)
+        resp = await authed_client.post("/api/v1/flashcards/generate", json=body)
         assert resp.status_code == 201
         data = resp.json()
         assert data["cards_created"] == 0
         assert data["cards"] == []
 
     @pytest.mark.asyncio
-    async def test_generate_card_schema_fields(self, client):
-        resp = await client.post("/api/v1/flashcards/generate", json=_generate_body(["test"]))
+    async def test_generate_card_schema_fields(self, authed_client):
+        resp = await authed_client.post("/api/v1/flashcards/generate", json=_generate_body(["test"]))
         card = resp.json()["cards"][0]
         assert "id" in card
         assert "deck_id" in card
@@ -209,21 +209,21 @@ class TestGenerateEndpoint:
         assert "created_at" in card
 
     @pytest.mark.asyncio
-    async def test_generate_card_stores_cefr_and_definition(self, client):
+    async def test_generate_card_stores_cefr_and_definition(self, authed_client):
         body = {
             "deck_name": "CEFR Deck",
             "source_language": "es",
             "target_language": "en",
             "vocabulary": [{"word": "ubicuo", "cefr_level": "C1", "definition": "omnipresent"}],
         }
-        resp = await client.post("/api/v1/flashcards/generate", json=body)
+        resp = await authed_client.post("/api/v1/flashcards/generate", json=body)
         card = resp.json()["cards"][0]
         assert card["cefr_level"] == "C1"
         assert card["definition"] == "omnipresent"
 
     @pytest.mark.asyncio
-    async def test_generate_deck_schema_fields(self, client):
-        resp = await client.post("/api/v1/flashcards/generate", json=_generate_body())
+    async def test_generate_deck_schema_fields(self, authed_client):
+        resp = await authed_client.post("/api/v1/flashcards/generate", json=_generate_body())
         deck = resp.json()["deck"]
         assert "id" in deck
         assert "name" in deck
@@ -232,8 +232,8 @@ class TestGenerateEndpoint:
         assert "created_at" in deck
 
     @pytest.mark.asyncio
-    async def test_generate_deck_languages_stored(self, client):
-        resp = await client.post("/api/v1/flashcards/generate", json=_generate_body())
+    async def test_generate_deck_languages_stored(self, authed_client):
+        resp = await authed_client.post("/api/v1/flashcards/generate", json=_generate_body())
         deck = resp.json()["deck"]
         assert deck["source_language"] == "es"
         assert deck["target_language"] == "en"
@@ -243,26 +243,26 @@ class TestGenerateEndpoint:
 
 class TestDueEndpoint:
     @pytest.mark.asyncio
-    async def test_due_returns_200(self, client):
-        resp = await client.get("/api/v1/flashcards/due")
+    async def test_due_returns_200(self, authed_client):
+        resp = await authed_client.get("/api/v1/flashcards/due")
         assert resp.status_code == 200
 
     @pytest.mark.asyncio
-    async def test_due_returns_list(self, client):
-        resp = await client.get("/api/v1/flashcards/due")
+    async def test_due_returns_list(self, authed_client):
+        resp = await authed_client.get("/api/v1/flashcards/due")
         assert isinstance(resp.json(), list)
 
     @pytest.mark.asyncio
-    async def test_due_card_generated_today_appears(self, client):
-        await client.post("/api/v1/flashcards/generate", json=_generate_body(["dueword"]))
-        resp = await client.get("/api/v1/flashcards/due")
+    async def test_due_card_generated_today_appears(self, authed_client):
+        await authed_client.post("/api/v1/flashcards/generate", json=_generate_body(["dueword"]))
+        resp = await authed_client.get("/api/v1/flashcards/due")
         words = [item["card"]["word"] for item in resp.json()]
         assert "dueword" in words
 
     @pytest.mark.asyncio
-    async def test_due_response_item_has_card_and_review(self, client):
-        await client.post("/api/v1/flashcards/generate", json=_generate_body(["schema_check"]))
-        resp = await client.get("/api/v1/flashcards/due")
+    async def test_due_response_item_has_card_and_review(self, authed_client):
+        await authed_client.post("/api/v1/flashcards/generate", json=_generate_body(["schema_check"]))
+        resp = await authed_client.get("/api/v1/flashcards/due")
         items = [i for i in resp.json() if i["card"]["word"] == "schema_check"]
         assert len(items) >= 1
         item = items[0]
@@ -270,9 +270,9 @@ class TestDueEndpoint:
         assert "review" in item
 
     @pytest.mark.asyncio
-    async def test_due_review_schema_fields(self, client):
-        await client.post("/api/v1/flashcards/generate", json=_generate_body(["rev_schema"]))
-        resp = await client.get("/api/v1/flashcards/due")
+    async def test_due_review_schema_fields(self, authed_client):
+        await authed_client.post("/api/v1/flashcards/generate", json=_generate_body(["rev_schema"]))
+        resp = await authed_client.get("/api/v1/flashcards/due")
         items = [i for i in resp.json() if i["card"]["word"] == "rev_schema"]
         rev = items[0]["review"]
         assert "ease_factor" in rev
@@ -281,13 +281,13 @@ class TestDueEndpoint:
         assert "next_review" in rev
 
     @pytest.mark.asyncio
-    async def test_due_reviewed_card_not_returned_next_day(self, client):
-        gen_resp = await client.post(
+    async def test_due_reviewed_card_not_returned_next_day(self, authed_client):
+        gen_resp = await authed_client.post(
             "/api/v1/flashcards/generate", json=_generate_body(["future_word"])
         )
         card_id = gen_resp.json()["cards"][0]["id"]
-        await client.post("/api/v1/flashcards/review", json={"flashcard_id": card_id, "quality": 5})
-        due_resp = await client.get("/api/v1/flashcards/due")
+        await authed_client.post("/api/v1/flashcards/review", json={"flashcard_id": card_id, "quality": 5})
+        due_resp = await authed_client.get("/api/v1/flashcards/due")
         due_words = [i["card"]["word"] for i in due_resp.json()]
         assert "future_word" not in due_words
 
@@ -296,17 +296,17 @@ class TestDueEndpoint:
 
 class TestReviewEndpoint:
     @pytest.mark.asyncio
-    async def test_review_returns_200(self, client):
-        gen = await client.post("/api/v1/flashcards/generate", json=_generate_body(["rev200"]))
+    async def test_review_returns_200(self, authed_client):
+        gen = await authed_client.post("/api/v1/flashcards/generate", json=_generate_body(["rev200"]))
         card_id = gen.json()["cards"][0]["id"]
-        resp = await client.post("/api/v1/flashcards/review", json={"flashcard_id": card_id, "quality": 4})
+        resp = await authed_client.post("/api/v1/flashcards/review", json={"flashcard_id": card_id, "quality": 4})
         assert resp.status_code == 200
 
     @pytest.mark.asyncio
-    async def test_review_response_schema(self, client):
-        gen = await client.post("/api/v1/flashcards/generate", json=_generate_body(["revschema"]))
+    async def test_review_response_schema(self, authed_client):
+        gen = await authed_client.post("/api/v1/flashcards/generate", json=_generate_body(["revschema"]))
         card_id = gen.json()["cards"][0]["id"]
-        resp = await client.post("/api/v1/flashcards/review", json={"flashcard_id": card_id, "quality": 4})
+        resp = await authed_client.post("/api/v1/flashcards/review", json={"flashcard_id": card_id, "quality": 4})
         data = resp.json()
         assert "flashcard_id" in data
         assert "ease_factor" in data
@@ -315,49 +315,49 @@ class TestReviewEndpoint:
         assert "next_review" in data
 
     @pytest.mark.asyncio
-    async def test_review_quality_5_increments_repetitions(self, client):
-        gen = await client.post("/api/v1/flashcards/generate", json=_generate_body(["repcount"]))
+    async def test_review_quality_5_increments_repetitions(self, authed_client):
+        gen = await authed_client.post("/api/v1/flashcards/generate", json=_generate_body(["repcount"]))
         card_id = gen.json()["cards"][0]["id"]
-        resp = await client.post("/api/v1/flashcards/review", json={"flashcard_id": card_id, "quality": 5})
+        resp = await authed_client.post("/api/v1/flashcards/review", json={"flashcard_id": card_id, "quality": 5})
         assert resp.json()["repetitions"] == 1
 
     @pytest.mark.asyncio
-    async def test_review_quality_5_increases_ease_factor(self, client):
-        gen = await client.post("/api/v1/flashcards/generate", json=_generate_body(["eftest"]))
+    async def test_review_quality_5_increases_ease_factor(self, authed_client):
+        gen = await authed_client.post("/api/v1/flashcards/generate", json=_generate_body(["eftest"]))
         card_id = gen.json()["cards"][0]["id"]
-        resp = await client.post("/api/v1/flashcards/review", json={"flashcard_id": card_id, "quality": 5})
+        resp = await authed_client.post("/api/v1/flashcards/review", json={"flashcard_id": card_id, "quality": 5})
         assert resp.json()["ease_factor"] > 2.5
 
     @pytest.mark.asyncio
-    async def test_review_quality_0_resets_to_interval_1(self, client):
-        gen = await client.post("/api/v1/flashcards/generate", json=_generate_body(["resettest"]))
+    async def test_review_quality_0_resets_to_interval_1(self, authed_client):
+        gen = await authed_client.post("/api/v1/flashcards/generate", json=_generate_body(["resettest"]))
         card_id = gen.json()["cards"][0]["id"]
-        await client.post("/api/v1/flashcards/review", json={"flashcard_id": card_id, "quality": 5})
-        await client.post("/api/v1/flashcards/review", json={"flashcard_id": card_id, "quality": 5})
-        resp = await client.post("/api/v1/flashcards/review", json={"flashcard_id": card_id, "quality": 0})
+        await authed_client.post("/api/v1/flashcards/review", json={"flashcard_id": card_id, "quality": 5})
+        await authed_client.post("/api/v1/flashcards/review", json={"flashcard_id": card_id, "quality": 5})
+        resp = await authed_client.post("/api/v1/flashcards/review", json={"flashcard_id": card_id, "quality": 0})
         data = resp.json()
         assert data["interval"] == 1
         assert data["repetitions"] == 0
 
     @pytest.mark.asyncio
-    async def test_review_unknown_card_returns_404(self, client):
+    async def test_review_unknown_card_returns_404(self, authed_client):
         fake_id = str(uuid.uuid4())
-        resp = await client.post("/api/v1/flashcards/review", json={"flashcard_id": fake_id, "quality": 3})
+        resp = await authed_client.post("/api/v1/flashcards/review", json={"flashcard_id": fake_id, "quality": 3})
         assert resp.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_review_quality_out_of_range_returns_422(self, client):
-        resp = await client.post(
+    async def test_review_quality_out_of_range_returns_422(self, authed_client):
+        resp = await authed_client.post(
             "/api/v1/flashcards/review",
             json={"flashcard_id": str(uuid.uuid4()), "quality": 6},
         )
         assert resp.status_code == 422
 
     @pytest.mark.asyncio
-    async def test_review_next_review_advances_after_success(self, client):
-        gen = await client.post("/api/v1/flashcards/generate", json=_generate_body(["advance"]))
+    async def test_review_next_review_advances_after_success(self, authed_client):
+        gen = await authed_client.post("/api/v1/flashcards/generate", json=_generate_body(["advance"]))
         card_id = gen.json()["cards"][0]["id"]
-        resp = await client.post("/api/v1/flashcards/review", json={"flashcard_id": card_id, "quality": 4})
+        resp = await authed_client.post("/api/v1/flashcards/review", json={"flashcard_id": card_id, "quality": 4})
         next_review = resp.json()["next_review"]
         assert next_review > str(date.today())
 
@@ -366,33 +366,33 @@ class TestReviewEndpoint:
 
 class TestStatsEndpoint:
     @pytest.mark.asyncio
-    async def test_stats_returns_200(self, client):
-        resp = await client.get("/api/v1/flashcards/stats")
+    async def test_stats_returns_200(self, authed_client):
+        resp = await authed_client.get("/api/v1/flashcards/stats")
         assert resp.status_code == 200
 
     @pytest.mark.asyncio
-    async def test_stats_response_schema(self, client):
-        resp = await client.get("/api/v1/flashcards/stats")
+    async def test_stats_response_schema(self, authed_client):
+        resp = await authed_client.get("/api/v1/flashcards/stats")
         data = resp.json()
         assert "total_cards" in data
         assert "cards_due" in data
         assert "cards_mastered" in data
 
     @pytest.mark.asyncio
-    async def test_stats_total_cards_reflects_generated(self, client):
-        before = (await client.get("/api/v1/flashcards/stats")).json()["total_cards"]
-        await client.post("/api/v1/flashcards/generate", json=_generate_body(["statsword1", "statsword2"]))
-        after = (await client.get("/api/v1/flashcards/stats")).json()["total_cards"]
+    async def test_stats_total_cards_reflects_generated(self, authed_client):
+        before = (await authed_client.get("/api/v1/flashcards/stats")).json()["total_cards"]
+        await authed_client.post("/api/v1/flashcards/generate", json=_generate_body(["statsword1", "statsword2"]))
+        after = (await authed_client.get("/api/v1/flashcards/stats")).json()["total_cards"]
         assert after == before + 2
 
     @pytest.mark.asyncio
-    async def test_stats_mastered_threshold_is_21_days(self, client):
-        gen = await client.post("/api/v1/flashcards/generate", json=_generate_body(["masterme"]))
+    async def test_stats_mastered_threshold_is_21_days(self, authed_client):
+        gen = await authed_client.post("/api/v1/flashcards/generate", json=_generate_body(["masterme"]))
         card_id = gen.json()["cards"][0]["id"]
-        before = (await client.get("/api/v1/flashcards/stats")).json()["cards_mastered"]
+        before = (await authed_client.get("/api/v1/flashcards/stats")).json()["cards_mastered"]
         for _ in range(6):
-            await client.post("/api/v1/flashcards/review", json={"flashcard_id": card_id, "quality": 5})
-        after = (await client.get("/api/v1/flashcards/stats")).json()["cards_mastered"]
+            await authed_client.post("/api/v1/flashcards/review", json={"flashcard_id": card_id, "quality": 5})
+        after = (await authed_client.get("/api/v1/flashcards/stats")).json()["cards_mastered"]
         assert after >= before
 
 

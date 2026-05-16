@@ -29,7 +29,13 @@
       "Bash(npm run *)",
       "Bash(gh pr create --title 'feat: Phase 7 — Fiona_Frontend full React/TypeScript UI' --body ' *)",
       "Bash(python -m pytest tests/test_deployment.py -v)",
-      "Bash(gh pr create --title 'feat: Phase 8 — Dmitri_DevOps cloud deployment \\(Fly.io + Vercel + CI/CD\\)' --body ' *)"
+      "Bash(gh pr create --title 'feat: Phase 8 — Dmitri_DevOps cloud deployment \\(Fly.io + Vercel + CI/CD\\)' --body ' *)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\mormi\\\\OneDrive\\\\Documents\\\\Ai_Projects\\\\Aria\\\\aria\" -Recurse -Directory)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(grep -E \"^d|\\\\.py$|\\\\.txt$\")",
+      "Bash(grep -E \"\\\\.py$\")",
+      "Bash(python -m pytest backend/tests/ -x -q)",
+      "Bash(gh pr create --title 'feat: Phase 9 — Anna_Auth monetization \\(Stripe + Free/Pro tier enforcement\\)' --body ' *)"
     ]
   }
 }

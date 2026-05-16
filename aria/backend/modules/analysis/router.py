@@ -27,6 +27,9 @@ from aria.backend.modules.analysis.schemas import (
     SpeakerSegmentRead,
     VoiceBlueprint,
 )
+from aria.backend.modules.auth.models import User
+from aria.backend.modules.auth.users import current_active_user
+from aria.backend.modules.billing.dependencies import check_daily_analysis
 from aria.backend.services.factory import (
     get_diarization_service,
     get_llm_service,
@@ -74,6 +77,8 @@ async def analyze_session(
     language: str = Form("auto", description="Target language code (de/en/es/fr/it) or 'auto'"),
     pipeline: AnalysisPipeline = Depends(get_pipeline),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(current_active_user),
+    _quota: None = Depends(check_daily_analysis),
 ) -> AnalysisSessionRead:
     """Run the 6-pass analysis pipeline on an uploaded audio file.
 
@@ -120,6 +125,7 @@ async def analyze_session(
         tmp_path.unlink(missing_ok=True)
 
     session = AnalysisSession(
+        user_id=current_user.id,
         audio_filename=filename,
         language=result.language,
         duration_seconds=result.duration_seconds,
