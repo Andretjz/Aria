@@ -138,7 +138,7 @@ async def login(
 
 # ── Logout ─────────────────────────────────────────────────────────────────
 
-@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT, response_model=None)
 async def logout(
     request: Request,
     response: Response,
@@ -309,6 +309,7 @@ async def export_data(
 @router.delete(
     "/me",
     status_code=status.HTTP_204_NO_CONTENT,
+    response_model=None,
     summary="GDPR Article 17 — right to erasure",
 )
 async def delete_account(

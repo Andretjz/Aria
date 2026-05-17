@@ -38,7 +38,7 @@ redis[hiredis]==5.2.1
 # silero-vad
 
 # ── Audio processing (CPU — dev + prod) ───────────────────────────────────────
-parselmouth==0.4.4
+praat-parselmouth==0.4.4
 pydub==0.25.1
 scipy==1.15.3
 numpy==2.2.5
